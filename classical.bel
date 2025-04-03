@@ -1,0 +1,63 @@
+% Classical logic using Peirce's law
+
+LF o : type =  % formulas
+  | ⊃ : o → o → o
+  | ⊤ : o
+  | ∧   : o → o → o
+  | ∨   : o → o → o
+  | ¬  : o → o
+  | ∀  : (i → o) → o
+  | ∃  : (i → o) → o
+;
+
+
+--prefix ¬ 10.
+--infix ∧ 6 right.
+--infix ∨ 5 right.
+--infix ⊃ 4 right.
+--prefix ∀ 8.
+--prefix ∃ 8.
+
+
+% Classical Natural Deduction Rules
+LF cnd : o → type = 
+  % Natural Deduction
+  | ⊃I : (cnd A → cnd B)
+	 → cnd (A ⊃ B)
+  | ⊃E : cnd (A ⊃ B) → cnd A
+	 → cnd B
+  | ∧I : cnd A → cnd B → cnd  (A ∧ B)
+  | ∧El : cnd (A ∧ B) → cnd A
+  | ∧Er : cnd (A ∧ B) → cnd B
+  | ∨Il : cnd A → cnd (A ∨ B)
+  | ∨Ir : cnd B → cnd (A ∨ B)
+  | ∨E  : cnd (A ∨ B)
+        → (cnd A → cnd C)
+        → (cnd B → cnd C)        
+        → cnd C
+  | ⊤I : cnd ⊤
+
+  % First Order Logic
+  | ∀I : ({a:i} nd (A a)) 
+	 → nd (∀ (\x. A x))
+
+  | ∀E : {T:i} nd (∀ A) 
+	 → nd (A T)       
+
+  | ∃I : {T:i} nd (A T)           
+	 → nd (∃ A)
+
+  | ∃E : nd (∃ A)
+	 → ({a:i} nd (A a) → nd C)
+	 → nd C
+
+  % Peirce's Law
+  % Maybe Correct TODO
+  | PL: cnd ((A ⊃ B) ⊃ A) → cnd A
+
+
+;
+
+
+schema nctx = cnd A ;
+
