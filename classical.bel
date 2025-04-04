@@ -1,5 +1,7 @@
 % Classical logic using Peirce's law
 
+i : type.
+
 LF o : type =  % formulas
   | ⊃ : o → o → o
   | ⊤ : o
@@ -38,26 +40,26 @@ LF cnd : o → type =
   | ⊤I : cnd ⊤
 
   % Negation
-  | ¬I : ({p:o} nd A → nd p)
-	 → nd (¬ A)
+  | ¬I : ({p:o} cnd A → cnd p)
+	 → cnd (¬ A)
 	       
-  | ¬E : nd (¬ A) → nd A
-	 → nd C
+  | ¬E : cnd (¬ A) → cnd A
+	 → cnd C
 	       
 
   % First Order Logic
-  | ∀I : ({a:i} nd (A a)) 
-	 → nd (∀ (\x. A x))
+  | ∀I : ({a:i} cnd (A a)) 
+	 → cnd (∀ (\x. A x))
 
-  | ∀E : {T:i} nd (∀ A) 
-	 → nd (A T)       
+  | ∀E : {T:i} cnd (∀ A) 
+	 → cnd (A T)       
 
-  | ∃I : {T:i} nd (A T)           
-	 → nd (∃ A)
+  | ∃I : {T:i} cnd (A T)           
+	 → cnd (∃ A)
 
-  | ∃E : nd (∃ A)
-	 → ({a:i} nd (A a) → nd C)
-	 → nd C
+  | ∃E : cnd (∃ A)
+	 → ({a:i} cnd (A a) → cnd C)
+	 → cnd C
 
   % Peirce's Law
   % Maybe Correct TODO
@@ -98,7 +100,7 @@ LF tm : o → type =
   | let-val : tm (∃ A) → ({a:i} tm (A a) → tm C) → tm C 
 
   % Peirce's Law proof term
-  | cont :
+  | cont : tm ((A ⊃ B) ⊃ A) → tm A
 ;
 
 
@@ -106,18 +108,65 @@ LF tm : o → type =
 LF tm2 : type =
   | app : tm2 → tm2 → tm2
   | lam : (tm2 → tm2) → tm2
-  | empty : tm2
+  
   | pair : tm2 → tm2 → tm2
   | fst : tm2 → tm2
   | snd : tm2 → tm2
+
   | inl : tm2 → tm2
   | inr : tm2 → tm2
-  | cse : tm2 → tm2 → tm2 → tm2
-  | ?
+  | cse : tm2 → (tm2 → tm2) → (tm2 → tm2) → tm2
+
+  | nil : tm2
+
+  | let-val : tm2 → (tm2 → tm2) → tm2
 ;
 
 % Use proof terms? connected to tm2 and cnd
-LF pt : tm2 → cnd → type = 
-  % Implication M:A⊃B, N:A → M N: B
-  | imp : pt M (A ⊃ B) → pt N A → pt (app M N) B
+LF pt : tm2 → o → type = 
+
+  % Implication Intro x:A, M:B → lam x. M : A⊃B
+  % Here we have (M x):B. It is saying M is the function body,and x is "applied" to it
+  % so to extract the function body, lam M : A⊃B
+  | ⊃Ip : ({x : tm2} pt x A → pt (M x) B)  → pt (lam M) (A ⊃ B)
+
+  % Implication Elim M:A⊃B, N:A → M N: B
+  | ⊃Ep : pt M (A ⊃ B) → pt N A → pt (app M N) B
+
+  % | ∧I : cnd A → cnd B → cnd  (A ∧ B)
+  % | ∧El : cnd (A ∧ B) → cnd A
+  % | ∧Er : cnd (A ∧ B) → cnd B
+  % | ∨Il : cnd A → cnd (A ∨ B)
+  % | ∨Ir : cnd B → cnd (A ∨ B)
+  % | ∨E  : cnd (A ∨ B)
+  %       → (cnd A → cnd C)
+  %       → (cnd B → cnd C)        
+  %       → cnd C
+  % | ⊤I : cnd ⊤
+
+  % % Negation
+  % | ¬I : ({p:o} nd A → nd p)
+	%  → nd (¬ A)
+	       
+  % | ¬E : nd (¬ A) → nd A
+	%  → nd C
+	       
+
+  % % First Order Logic
+  % | ∀I : ({a:i} nd (A a)) 
+	%  → nd (∀ (\x. A x))
+
+  % | ∀E : {T:i} nd (∀ A) 
+	%  → nd (A T)       
+
+  % | ∃I : {T:i} nd (A T)           
+	%  → nd (∃ A)
+
+  % | ∃E : nd (∃ A)
+	%  → ({a:i} nd (A a) → nd C)
+	%  → nd C
+
+  % % Peirce's Law
+  % | PL: cnd ((A ⊃ B) ⊃ A) → cnd A
+
 ;
