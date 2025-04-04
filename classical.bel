@@ -37,6 +37,14 @@ LF cnd : o → type =
         → cnd C
   | ⊤I : cnd ⊤
 
+  % Negation
+  | ¬I : ({p:o} nd A → nd p)
+	 → nd (¬ A)
+	       
+  | ¬E : nd (¬ A) → nd A
+	 → nd C
+	       
+
   % First Order Logic
   | ∀I : ({a:i} nd (A a)) 
 	 → nd (∀ (\x. A x))
@@ -61,3 +69,55 @@ LF cnd : o → type =
 
 schema nctx = cnd A ;
 
+
+% Proof Terms? TODO Ask Chuta
+LF tm : o → type =
+  | lam : (tm A → tm B) → tm (A ⊃ B)
+  | app : tm (A ⊃ B) → tm A → tm B
+  | pair: tm A → tm B → tm (A ∧ B)
+  | fst : tm (A ∧ B) → tm A
+  | snd : tm (A ∧ B) → tm B
+  | inl : tm A → tm (A ∨ B)
+  | inr : tm B → tm (A ∨ B)
+  | cse : tm (A ∨ B)
+        → (tm A → tm C)
+        → (tm B → tm C)        
+        → tm C
+  | unit: tm ⊤
+
+  % negation proof terms
+  | lam-neg : ({p:o} tm A → tm p) → tm (¬ A)
+  | app-neg : tm (¬ A) → tm A → tm C
+
+  % for all proof terms
+  | lam-all : ({a:i} tm (A a)) → tm (∀ (\x. A x)) 
+  | app-all : {T:i} tm (∀ A) → tm (A T) 
+
+  % existential proof terms
+  | pair-exst : {T:i} tm (A T) → tm (∃ A)
+  | let-val : tm (∃ A) → ({a:i} tm (A a) → tm C) → tm C 
+
+  % Peirce's Law proof term
+  | cont :
+;
+
+
+% Alternate Proof Terms? TODO ask Chuta
+LF tm2 : type =
+  | app : tm2 → tm2 → tm2
+  | lam : (tm2 → tm2) → tm2
+  | empty : tm2
+  | pair : tm2 → tm2 → tm2
+  | fst : tm2 → tm2
+  | snd : tm2 → tm2
+  | inl : tm2 → tm2
+  | inr : tm2 → tm2
+  | cse : tm2 → tm2 → tm2 → tm2
+  | ?
+;
+
+% Use proof terms? connected to tm2 and cnd
+LF pt : tm2 → cnd → type = 
+  % Implication M:A⊃B, N:A → M N: B
+  | imp : pt M (A ⊃ B) → pt N A → pt (app M N) B
+;
