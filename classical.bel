@@ -28,7 +28,7 @@ LF cnd : o → type =
 	 → cnd (A ⊃ B)
   | ⊃E : cnd (A ⊃ B) → cnd A
 	 → cnd B
-  | ∧I : cnd A → cnd B → cnd  (A ∧ B)
+  | ∧I : cnd A → cnd B → cnd (A ∧ B)
   | ∧El : cnd (A ∧ B) → cnd A
   | ∧Er : cnd (A ∧ B) → cnd B
   | ∨Il : cnd A → cnd (A ∨ B)
@@ -62,9 +62,7 @@ LF cnd : o → type =
 	 → cnd C
 
   % Peirce's Law
-  % Maybe Correct TODO
   | PL: cnd ((A ⊃ B) ⊃ A) → cnd A
-
 
 ;
 
@@ -72,101 +70,83 @@ LF cnd : o → type =
 schema nctx = cnd A ;
 
 
-% Proof Terms? TODO Ask Chuta
-LF tm : o → type =
-  | lam : (tm A → tm B) → tm (A ⊃ B)
-  | app : tm (A ⊃ B) → tm A → tm B
-  | pair: tm A → tm B → tm (A ∧ B)
-  | fst : tm (A ∧ B) → tm A
-  | snd : tm (A ∧ B) → tm B
-  | inl : tm A → tm (A ∨ B)
-  | inr : tm B → tm (A ∨ B)
-  | cse : tm (A ∨ B)
-        → (tm A → tm C)
-        → (tm B → tm C)        
-        → tm C
-  | unit: tm ⊤
-
-  % negation proof terms
-  | lam-neg : ({p:o} tm A → tm p) → tm (¬ A)
-  | app-neg : tm (¬ A) → tm A → tm C
-
-  % for all proof terms
-  | lam-all : ({a:i} tm (A a)) → tm (∀ (\x. A x)) 
-  | app-all : {T:i} tm (∀ A) → tm (A T) 
-
-  % existential proof terms
-  | pair-exst : {T:i} tm (A T) → tm (∃ A)
-  | let-val : tm (∃ A) → ({a:i} tm (A a) → tm C) → tm C 
-
-  % Peirce's Law proof term
-  | cont : tm ((A ⊃ B) ⊃ A) → tm A
-;
-
-
-% Alternate Proof Terms? TODO ask Chuta
-LF tm2 : type =
-  | app : tm2 → tm2 → tm2
-  | lam : (tm2 → tm2) → tm2
+% Alternate Proof Terms
+LF tm : type =
+  | app : tm → tm → tm
+  | lam : (tm → tm) → tm
   
-  | pair : tm2 → tm2 → tm2
-  | fst : tm2 → tm2
-  | snd : tm2 → tm2
+  | pair : tm → tm → tm
+  | fst : tm → tm
+  | snd : tm → tm
 
-  | inl : tm2 → tm2
-  | inr : tm2 → tm2
-  | cse : tm2 → (tm2 → tm2) → (tm2 → tm2) → tm2
+  | inl : tm → tm
+  | inr : tm → tm
+  | cse : tm → (tm → tm) → (tm → tm) → tm
 
-  | nil : tm2
+  | nil : tm
 
-  | let-val : tm2 → (tm2 → tm2) → tm2
+  | app_p : tm → i → tm
+  | lam_p : (i → tm) → tm
+  
+  | pair_p : tm → i → tm
+  | let_val_p : (i -> tm → tm) → tm → tm % TODO check if correct
+
+  % TODO: add negation proof term?
+
+  % TODO: add continuation for Peirces Law
+  % | cont : ?
 ;
 
-% Use proof terms? connected to tm2 and cnd
-LF pt : tm2 → o → type = 
 
+
+% Use proof terms
+LF pt : tm → o → type = 
   % Implication Intro x:A, M:B → lam x. M : A⊃B
   % Here we have (M x):B. It is saying M is the function body,and x is "applied" to it
   % so to extract the function body, lam M : A⊃B
-  | ⊃Ip : ({x : tm2} pt x A → pt (M x) B)  → pt (lam M) (A ⊃ B)
+  | ⊃Ip : ({x : tm} pt x A → pt (M x) B)  → pt (lam (\x. M x)) (A ⊃ B)
 
   % Implication Elim M:A⊃B, N:A → M N: B
   | ⊃Ep : pt M (A ⊃ B) → pt N A → pt (app M N) B
 
-  % | ∧I : cnd A → cnd B → cnd  (A ∧ B)
-  % | ∧El : cnd (A ∧ B) → cnd A
-  % | ∧Er : cnd (A ∧ B) → cnd B
-  % | ∨Il : cnd A → cnd (A ∨ B)
-  % | ∨Ir : cnd B → cnd (A ∨ B)
-  % | ∨E  : cnd (A ∨ B)
-  %       → (cnd A → cnd C)
-  %       → (cnd B → cnd C)        
-  %       → cnd C
-  % | ⊤I : cnd ⊤
+  % TODO finish the rest
 
-  % % Negation
-  % | ¬I : ({p:o} nd A → nd p)
-	%  → nd (¬ A)
+  | ∧Ip : pt M A → pt N B → pt (pair M N) (A ∧ B)
+  | ∧Elp : pt M (A ∧ B) → pt (fst M) A
+  | ∧Erp : pt M (A ∧ B) → pt (snd M) B
+
+  | ∨Ilp : pt M A → pt (inl M) (A ∨ B)
+  | ∨Irp : pt M B → pt (inr M) (A ∨ B)
+  | ∨Ep  : pt M (A ∨ B)
+        → ({x : tm} pt x A → pt (Nl x) C)
+        → ({y : tm} pt y B → pt (Nr y) C)   
+        → pt (cse M (\x. Nl x) (\y. Nl y)) C
+
+  | ⊤Ip : pt nil ⊤
+
+  % Negation TODO
+  % | ¬Ip : ({p:o} cnd A → cnd p)
+	%  → cnd (¬ A)
 	       
-  % | ¬E : nd (¬ A) → nd A
-	%  → nd C
+  % | ¬Ep : cnd (¬ A) → cnd A
+	%  → cnd C
 	       
 
-  % % First Order Logic
-  % | ∀I : ({a:i} nd (A a)) 
-	%  → nd (∀ (\x. A x))
+  % First Order Logic
+  | ∀Ip : ({a:i} pt (M a) (A a)) 
+	 → pt (lam_p (\a. M a)) (∀ (\x. A x))
 
-  % | ∀E : {T:i} nd (∀ A) 
-	%  → nd (A T)       
+  | ∀Ep : {T:i} pt M (∀ A) 
+	 → pt (app_p M T) (A T)       
 
-  % | ∃I : {T:i} nd (A T)           
-	%  → nd (∃ A)
+  | ∃Ip : {T:i} pt (M) (A T)           
+	 → pt (pair_p M T) (∃ A)
 
-  % | ∃E : nd (∃ A)
-	%  → ({a:i} nd (A a) → nd C)
-	%  → nd C
+  | ∃Ep : pt M (∃ A)
+	 → ({a:i, u:tm} pt u (A a) → pt (N u a) C)
+	 → pt (let_val_p (\a.\u. N u a) M) C
 
-  % % Peirce's Law
-  % | PL: cnd ((A ⊃ B) ⊃ A) → cnd A
+  % Peirce's Law TODO
+  % | PLp: cnd ((A ⊃ B) ⊃ A) → cnd A
 
 ;
