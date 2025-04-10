@@ -5,6 +5,7 @@ i : type.
 LF o : type =  % formulas
   | ⊃ : o → o → o
   | ⊤ : o
+  | ⊥ : o
   | ∧   : o → o → o
   | ∨   : o → o → o
   | ¬  : o → o
@@ -37,7 +38,9 @@ LF cnd : o → type =
         → (cnd A → cnd C)
         → (cnd B → cnd C)        
         → cnd C
+
   | ⊤I : cnd ⊤
+  | ⊥E : cnd ⊥ → cnd C
 
   % Negation
   | ¬I : ({p:o} cnd A → cnd p)
@@ -67,7 +70,24 @@ LF cnd : o → type =
 ;
 
 
-schema nctx = cnd A ;
+
+% Proof of Law of excluded middle
+rec exm : [ ⊢ cnd (A ∨ (¬ A))] =
+[ ⊢ PL (⊃I \u. 
+          (⊥E 
+            (⊃E 
+              (⊃I \v. 
+                (⊃E u (∨Ir v))
+              )
+              (¬I \p. \w. ⊥E 
+                (⊃E u (∨Il w))
+              )
+            )
+          )
+        )
+  ] 
+;
+
 
 
 % Alternate Proof Terms
@@ -84,17 +104,22 @@ LF tm : type =
   | cse : tm → (tm → tm) → (tm → tm) → tm
 
   | nil : tm
+  | abort : tm → tm
 
-  | app_p : tm → i → tm
-  | lam_p : (i → tm) → tm
+  % First Order Logic
+  | app_f : tm → i → tm
+  | lam_f : (i → tm) → tm
   
-  | pair_p : tm → i → tm
-  | let_val_p : (i -> tm → tm) → tm → tm % TODO check if correct
+  | pair_f : tm → i → tm
+  | let_val_f : tm → (i -> tm → tm) → tm 
 
-  % TODO: add negation proof term?
+  % Negation
+  | abort_n : tm → tm → tm
+  | v : (o → tm → tm) → tm
 
-  % TODO: add continuation for Peirces Law
-  % | cont : ?
+  % Peirces Law proof term
+  % call with current continuation: cc
+  | cc : tm → tm
 ;
 
 
@@ -109,8 +134,6 @@ LF pt : tm → o → type =
   % Implication Elim M:A⊃B, N:A → M N: B
   | ⊃Ep : pt M (A ⊃ B) → pt N A → pt (app M N) B
 
-  % TODO finish the rest
-
   | ∧Ip : pt M A → pt N B → pt (pair M N) (A ∧ B)
   | ∧Elp : pt M (A ∧ B) → pt (fst M) A
   | ∧Erp : pt M (A ∧ B) → pt (snd M) B
@@ -124,29 +147,36 @@ LF pt : tm → o → type =
 
   | ⊤Ip : pt nil ⊤
 
-  % Negation TODO
-  % | ¬Ip : ({p:o} cnd A → cnd p)
-	%  → cnd (¬ A)
-	       
-  % | ¬Ep : cnd (¬ A) → cnd A
-	%  → cnd C
-	       
+  | ⊥E : pt M ⊥ → pt (abort M) C
 
+  % Negation
+  | ¬Ip : ({x : tm}{p:o} pt x A → pt (M p x) p)
+	 → pt (v M) (¬ A)
+	       
+  | ¬Ep : pt M (¬ A) → pt N A
+	 → pt (abort_n M N) C
+	       
   % First Order Logic
   | ∀Ip : ({a:i} pt (M a) (A a)) 
-	 → pt (lam_p (\a. M a)) (∀ (\x. A x))
+	 → pt (lam_f (\a. M a)) (∀ (\x. A x))
 
   | ∀Ep : {T:i} pt M (∀ A) 
-	 → pt (app_p M T) (A T)       
+	 → pt (app_f M T) (A T)       
 
   | ∃Ip : {T:i} pt (M) (A T)           
-	 → pt (pair_p M T) (∃ A)
+	 → pt (pair_f M T) (∃ A)
 
   | ∃Ep : pt M (∃ A)
-	 → ({a:i, u:tm} pt u (A a) → pt (N u a) C)
-	 → pt (let_val_p (\a.\u. N u a) M) C
+	 → ({a:i}{u:tm} pt u (A a) → pt (N u a) C)
+	 → pt (let_val_f M (\a.\u. N u a)) C
 
-  % Peirce's Law TODO
-  % | PLp: cnd ((A ⊃ B) ⊃ A) → cnd A
+  % Peirce's Law 
+  | PLp: pt M ((A ⊃ B) ⊃ A) → pt (cc M) A
 
 ;
+
+% TODO prove preservation and progress
+% Examples:
+% https://github.com/Beluga-lang/Beluga/blob/master/examples/mini-ml/tps.bel
+% https://github.com/Beluga-lang/Beluga/blob/master/examples/small-step/lam.bel
+
