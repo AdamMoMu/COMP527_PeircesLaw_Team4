@@ -115,7 +115,7 @@ LF tm : type =
 
   % Negation
   | abort_n : tm → tm → tm
-  | v : (o → tm → tm) → tm
+  | intro_n : (o → tm → tm) → tm
 
   % Peirces Law proof term
   % call with current continuation: cc
@@ -143,7 +143,7 @@ LF pt : tm → o → type =
   | ∨Ep  : pt M (A ∨ B)
         → ({x : tm} pt x A → pt (Nl x) C)
         → ({y : tm} pt y B → pt (Nr y) C)   
-        → pt (cse M (\x. Nl x) (\y. Nl y)) C
+        → pt (cse M (\x. Nl x) (\y. Nr y)) C
 
   | ⊤Ip : pt nil ⊤
 
@@ -151,7 +151,7 @@ LF pt : tm → o → type =
 
   % Negation
   | ¬Ip : ({x : tm}{p:o} pt x A → pt (M p x) p)
-	 → pt (v M) (¬ A)
+	 → pt (intro_n (\p. \x. M p x)) (¬ A)
 	       
   | ¬Ep : pt M (¬ A) → pt N A
 	 → pt (abort_n M N) C
@@ -180,3 +180,94 @@ LF pt : tm → o → type =
 % https://github.com/Beluga-lang/Beluga/blob/master/examples/mini-ml/tps.bel
 % https://github.com/Beluga-lang/Beluga/blob/master/examples/small-step/lam.bel
 
+
+%TODO
+% Values (not sure what exactly it is yet)
+LF value : tm → type =
+  | value_nil : value nil
+  | value_lam : value (lam (\x. M x))
+  | value_intro_n : ?
+  | value_lam_f : 
+  ;
+
+
+
+%TODO
+% Step (reduction)
+LF step : tm → tm → type = 
+  % Congruence Rules
+  % They done involve any simplifications, they usually only update propositions
+  | step_app_l : (step A1 A2) → (step (app A1 B) (app A2 B))
+  | step_app_r : (value A) → (step B1 B2) → (step (app A B1) (app A B2))
+
+  % This doesnt work
+  % In this context lambda is a function, so it cant be stepped through until the value of x is known
+  % So lam is a value instead
+  % Beluga checks this automatically, if you uncomment this line it gives and error
+  % | step_lam : (step M1 M2) → (step (lam (\x. M1 x)) (lam (\x. M2 x)))
+
+  | step_pair_l : ?
+  | step_pair_r : ?
+
+  | step_fst : ?
+  | step_snd : ?
+
+  | step_inl : ?
+  | step_inr : ?
+
+  % For case, the functions cant be stepped, but the other term can be
+  
+  % Correctly Doesnt work (not sure if we need value for it or not) TODO
+  % | step_cse_l : step Nl1 Nl2 → step (cse M (\x. Nl1 x) (\y. Nr y)) (cse M (\x. Nl2 x) (\y. Nr y)) 
+
+  % works
+  | step_cse : step M1 M2 → step (cse M1 (\x. Nl x) (\y. Nr y)) (cse M2 (\x. Nl x) (\y. Nr y))
+
+  | step_abort : ?
+
+  % First Order Logic
+  | step_app_f : ?
+  
+  | step_pair_f : ?
+
+  % TODO might also need a value
+  | step_let_val_f : ?
+
+  % Negation
+  | abort_n : ?
+
+  % Peirces Law proof term
+  % call with current continuation: cc
+  | step_cc : ?
+;
+
+
+
+
+
+% Preservation
+
+% Cases TODO
+%   ALL CONGRUENCE RULES
+%
+%   app (lam (\x. M) N) = [N/x] M 
+% 
+%   fst (A B) = A
+%   snd (A B) = B
+% 
+%   cse M (inl N) (...) = N
+%   cse M (...) (inr N) = N
+% 
+%   abort_n ((intro_n (\p. \x. M p x))) N = [N/x][C/p]N (C is the proposition)
+%   
+%   app_f (lam_f (\a. M a)) t = [t/a] M
+%   
+%   let_val_f (pair_f M T) (\a.\u. N u a) = [M/u, T/a] N
+%   
+%   cc (lam (\x. M))) = M ?
+
+
+
+
+
+% Progress
