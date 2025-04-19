@@ -186,8 +186,8 @@ LF pt : tm → o → type =
 LF value : tm → type =
   | value_nil : value nil
   | value_lam : value (lam (\x. M x))
-  | value_intro_n : ?
-  | value_lam_f : 
+  | value_intro_n : value (intro_n (\p. \x. M p x))
+  | value_lam_f : value (lam_f (\a. M a))
   ;
 
 
@@ -200,45 +200,53 @@ LF step : tm → tm → type =
   | step_app_l : (step A1 A2) → (step (app A1 B) (app A2 B))
   | step_app_r : (value A) → (step B1 B2) → (step (app A B1) (app A B2))
 
+  % value is used to say A already finished stepping and doesnt need to be stepped anymore
+  % This is because we are assumming the "program" runs left to right, so A before B
+
+
   % This doesnt work
   % In this context lambda is a function, so it cant be stepped through until the value of x is known
   % So lam is a value instead
   % Beluga checks this automatically, if you uncomment this line it gives and error
   % | step_lam : (step M1 M2) → (step (lam (\x. M1 x)) (lam (\x. M2 x)))
 
-  | step_pair_l : ?
-  | step_pair_r : ?
+  | step_pair_l : (step A1 A2) → (step (pair A1 B) (pair A2 B))
+  | step_pair_r : (value A) → (step B1 B2) → (step (pair A B1) (pair A B2))
 
-  | step_fst : ?
-  | step_snd : ?
+  | step_fst : (step A1 A2) → (step (fst A1) (fst A2))
+  | step_snd : (step A1 A2) → (step (snd A1) (snd A2))
 
-  | step_inl : ?
-  | step_inr : ?
+  | step_inl : (step A1 A2) → (step (inl A1) (inl A2))
+  | step_inr : (step A1 A2) → (step (inr A1) (inr A2))
 
-  % For case, the functions cant be stepped, but the other term can be
-  
-  % Correctly Doesnt work (not sure if we need value for it or not) TODO
-  % | step_cse_l : step Nl1 Nl2 → step (cse M (\x. Nl1 x) (\y. Nr y)) (cse M (\x. Nl2 x) (\y. Nr y)) 
+  % For the next case, the functions cant be stepped, but the other term can be
 
   % works
   | step_cse : step M1 M2 → step (cse M1 (\x. Nl x) (\y. Nr y)) (cse M2 (\x. Nl x) (\y. Nr y))
 
-  | step_abort : ?
+  % Correctly Doesnt work (not sure if we need value for it or not) TODO
+  % | step_cse_l : step Nl1 Nl2 → step (cse M (\x. Nl1 x) (\y. Nr y)) (cse M (\x. Nl2 x) (\y. Nr y)) 
+
+  | step_abort : (step A1 A2) → (step (abort A1) (abort A2))
 
   % First Order Logic
-  | step_app_f : ?
+  | step_app_f : (step M1 M2) → (step (app_f M1 T) (app_f M2 T))
   
-  | step_pair_f : ?
+  | step_pair_f : (step M1 M2) → (step (pair_f M1 T) (pair_f M2 T))
 
   % TODO might also need a value
-  | step_let_val_f : ?
+  | step_let_val_f : step M1 M2 → step (let_val_f M1 (\a.\u. N u a)) (let_val_f M2 (\a.\u. N u a))
 
   % Negation
-  | abort_n : ?
+  | step_abort_n_l : (step A1 A2) → (step (abort_n A1 B) (abort_n A2 B))
+  | step_abort_n_r : (value A) → (step B1 B2) → (step (abort_n A B1) (abort_n A B2))
 
   % Peirces Law proof term
   % call with current continuation: cc
-  | step_cc : ?
+  | step_cc : (step A1 A2) → (step (cc A1) (cc A2))
+
+  % All the actual reductions
+  % | ?
 ;
 
 
