@@ -261,7 +261,7 @@ LF step : tm → tm → type =
   %   
   %   let_val_f (pair_f M T) (\a.\u. N u a) = [M/u, T/a] N
   %   
-  %   cc (lam (\x. M x))) = M ?
+  %   cc ?
 
   | step_app_lam : value N → step (app (lam (\x. M x)) N) (M N)
 
