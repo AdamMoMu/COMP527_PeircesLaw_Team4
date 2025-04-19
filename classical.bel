@@ -181,18 +181,18 @@ LF pt : tm → o → type =
 % https://github.com/Beluga-lang/Beluga/blob/master/examples/small-step/lam.bel
 
 
-%TODO
 % Values (not sure what exactly it is yet)
 LF value : tm → type =
   | value_nil : value nil
   | value_lam : value (lam (\x. M x))
   | value_intro_n : value (intro_n (\p. \x. M p x))
   | value_lam_f : value (lam_f (\a. M a))
+  | value_cse : value (cse M (\x. Nl x) (\y. Nr y))
+  | value_let_val_f : value (let_val_f M (\a.\u. N u a))
   ;
 
 
 
-%TODO
 % Step (reduction)
 LF step : tm → tm → type = 
   % Congruence Rules
@@ -224,7 +224,7 @@ LF step : tm → tm → type =
   % works
   | step_cse : step M1 M2 → step (cse M1 (\x. Nl x) (\y. Nr y)) (cse M2 (\x. Nl x) (\y. Nr y))
 
-  % Correctly Doesnt work (not sure if we need value for it or not) TODO
+  % Correctly Doesnt work , so it also needs a value
   % | step_cse_l : step Nl1 Nl2 → step (cse M (\x. Nl1 x) (\y. Nr y)) (cse M (\x. Nl2 x) (\y. Nr y)) 
 
   | step_abort : (step A1 A2) → (step (abort A1) (abort A2))
@@ -234,7 +234,6 @@ LF step : tm → tm → type =
   
   | step_pair_f : (step M1 M2) → (step (pair_f M1 T) (pair_f M2 T))
 
-  % TODO might also need a value
   | step_let_val_f : step M1 M2 → step (let_val_f M1 (\a.\u. N u a)) (let_val_f M2 (\a.\u. N u a))
 
   % Negation
@@ -245,8 +244,41 @@ LF step : tm → tm → type =
   % call with current continuation: cc
   | step_cc : (step A1 A2) → (step (cc A1) (cc A2))
 
-  % All the actual reductions
-  % | ?
+
+  % Principal Cases
+  % These are standard reduction from local soundness
+  %   app (lam (\x. M) N) = [N/x] M 
+  % 
+  %   fst (A B) = A
+  %   snd (A B) = B
+  % 
+  %   (cse (inl M) (\x. Nl) (\x. Nr)) = Nl M
+  %   (cse (inr M) (\x. Nl) (\x. Nr)) = Nr M
+  % 
+  %   abort_n ((intro_n (\p. \x. M p x))) N = [N/x][C/p]N (C is the proposition)
+  %   
+  %   app_f (lam_f (\a. M a)) t = [t/a] M
+  %   
+  %   let_val_f (pair_f M T) (\a.\u. N u a) = [M/u, T/a] N
+  %   
+  %   cc (lam (\x. M x))) = M ?
+
+  | step_app_lam : value N → step (app (lam (\x. M x)) N) (M N)
+
+  
+  | step_fst_pair : step (fst (pair M N)) M
+  | step_snd_pair : step (snd (pair M N)) N
+  
+  | step_inl_cse : ?
+  | step_inr_cse : ?
+
+  | step_neg : ?
+
+  | step_exist : ?
+  
+  | step_all : ?
+
+  | step_cc : ?
 ;
 
 
@@ -254,25 +286,6 @@ LF step : tm → tm → type =
 
 
 % Preservation
-
-% Cases TODO
-%   ALL CONGRUENCE RULES
-%
-%   app (lam (\x. M) N) = [N/x] M 
-% 
-%   fst (A B) = A
-%   snd (A B) = B
-% 
-%   cse M (inl N) (...) = N
-%   cse M (...) (inr N) = N
-% 
-%   abort_n ((intro_n (\p. \x. M p x))) N = [N/x][C/p]N (C is the proposition)
-%   
-%   app_f (lam_f (\a. M a)) t = [t/a] M
-%   
-%   let_val_f (pair_f M T) (\a.\u. N u a) = [M/u, T/a] N
-%   
-%   cc (lam (\x. M))) = M ?
 
 
 
