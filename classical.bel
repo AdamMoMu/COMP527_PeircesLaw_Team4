@@ -221,7 +221,7 @@ LF step : tm → tm → type =
 
   % For the next case, the functions cant be stepped, but the other term can be
 
-  % works
+  % Works
   | step_cse : step M1 M2 → step (cse M1 (\x. Nl x) (\y. Nr y)) (cse M2 (\x. Nl x) (\y. Nr y))
 
   % Correctly Doesnt work , so it also needs a value
