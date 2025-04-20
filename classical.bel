@@ -311,12 +311,89 @@ LF step : tm → tm → type =
 
 
 % Preservation
+rec pres : [ ⊢ pt E P] → [ ⊢ step E E'] → [ ⊢ pt E' P] = 
+/ total s (pres E P E' p s)/
+fn p ⇒ fn s ⇒ case s of
+  | [ ⊢ step_app_l S] ⇒	?
+  | [ ⊢ step_app_r V S] ⇒	?
+
+  | [ ⊢ step_pair_l S] ⇒	?
+  | [ ⊢ step_pair_r V S] ⇒	?
+
+  | [ ⊢ step_fst S] ⇒	?
+  | [ ⊢ step_snd S] ⇒	?
+
+  | [ ⊢ step_inl S] ⇒	?
+  | [ ⊢ step_inr S] ⇒	?
+
+  | [ ⊢ step_cse S] ⇒	?
+
+  | [ ⊢ step_abort S] ⇒	?
+
+  | [ ⊢ step_app_f S] ⇒	?
+
+  | [ ⊢ step_pair_f S] ⇒	?
+  | [ ⊢ step_let_val_f S] ⇒	?
+  
+  | [ ⊢ step_abort_n_l S] ⇒	?
+  | [ ⊢ step_abort_n_r S V] ⇒	?
+
+  | [ ⊢ step_cc S] ⇒	?
+
+  | [ ⊢ step_app_lam V] ⇒	?
+
+  | [ ⊢ step_fst_pair] ⇒	?
+  | [ ⊢ step_snd_pair] ⇒	?
+
+  | [ ⊢ step_inl_cse] ⇒	?
+  | [ ⊢ step_inr_cse] ⇒	?
+
+  | [ ⊢ step_neg] ⇒	?
+
+  | [ ⊢ step_exist] ⇒	?
+  
+  | [ ⊢ step_all] ⇒	?
+  
+  | [ ⊢ step_cc] ⇒	?
+;
 
 
+% Step or value
+step_or_val : tm -> type.
+step_to : (step E E') -> step_or_val E.
+val : (value E) -> step_or_val E.
 
 
+% Progress (if we have proof then the proof term is a step or a value)
+rec prog : [ ⊢ pt E P] → [ ⊢ step_or_val E] = 
+/ total p (prog E P p)/
+fn p ⇒ case p of
+  | [ ⊢ ⊤Ip] ⇒	?
+  | [ ⊢ ⊥E D] ⇒	?
 
-% Progress
+  | [ ⊢ ⊃Ip D] ⇒	?
+  | [ ⊢ ⊃Ep D1 D2] ⇒	?
+
+  | [ ⊢ ∧Ip D1 D2] ⇒	?
+  | [ ⊢ ∧Elp D] ⇒	?
+  | [ ⊢ ∧Erp D] ⇒	?
+
+  | [ ⊢ ∨Ilp D] ⇒	?
+  | [ ⊢ ∨Irp D] ⇒	?
+  | [ ⊢ ∨Ep D1 D2 D3] ⇒	?
+
+  | [ ⊢ ¬Ip D] ⇒	?
+  | [ ⊢ ¬Ep D1 D2] ⇒	?
+
+  | [ ⊢ ∀Ip D] ⇒	?
+  | [ ⊢ ∀Ep D] ⇒	?
+
+  | [ ⊢ ∃Ip D] ⇒	?
+  | [ ⊢ ∃Ep D1 D2] ⇒	?
+
+  | [ ⊢ PLp D] ⇒	?
+
+;
 
 
 
