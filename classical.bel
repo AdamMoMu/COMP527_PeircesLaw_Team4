@@ -275,11 +275,11 @@ LF step : tm → tm → type =
   | step_inl_cse : step (cse (inl M) (\x. Nl x) (\y. Nr y)) (Nl M)
   | step_inr_cse : step (cse (inr M) (\x. Nl x) (\y. Nr y)) (Nr M)
 
-  % | step_neg : ?
+  | step_neg : value N → step (abort_n (intro_n (\p. \x. M p x)) N) (M C N)
 
-  % | step_exist : ?
+  | step_all : step (app_f (lam_f (\a. M a)) t) (M t)
   
-  % | step_all : ?
+  | step_exist : step (let_val_f (pair_f M t) (\a.\u. N u a)) (N M t)
 ;
 
 
@@ -300,20 +300,50 @@ fn p ⇒ fn s ⇒ case s of
     let [ ⊢ D2'] = pres [ ⊢ D2] [ ⊢ S] in
       [ ⊢ ⊃Ep D1 D2']
 
-  | [ ⊢ step_pair_l S] ⇒	?
-  | [ ⊢ step_pair_r V S] ⇒	?
+  | [ ⊢ step_pair_l S] ⇒	
+    let [ ⊢ ∧Ip D1 D2] = p in 
+    let [ ⊢ D1'] = pres [ ⊢ D1] [ ⊢ S] in
+      [ ⊢ ∧Ip D1' D2]
 
-  | [ ⊢ step_fst S] ⇒	?
-  | [ ⊢ step_snd S] ⇒	?
+  | [ ⊢ step_pair_r V S] ⇒		
+    let [ ⊢ ∧Ip D1 D2] = p in 
+    let [ ⊢ D2'] = pres [ ⊢ D2] [ ⊢ S] in
+      [ ⊢ ∧Ip D1 D2']
 
-  | [ ⊢ step_inl S] ⇒	?
-  | [ ⊢ step_inr S] ⇒	?
+  | [ ⊢ step_fst S] ⇒	
+    let [ ⊢ ∧Elp D] = p in 
+    let [ ⊢ D'] = pres [ ⊢ D] [ ⊢ S] in
+      [ ⊢ ∧Elp D']
 
-  | [ ⊢ step_cse S] ⇒	?
+  | [ ⊢ step_snd S] ⇒	
+    let [ ⊢ ∧Erp D] = p in 
+    let [ ⊢ D'] = pres [ ⊢ D] [ ⊢ S] in
+      [ ⊢ ∧Erp D']
 
-  | [ ⊢ step_abort S] ⇒	?
+  | [ ⊢ step_inl S] ⇒		
+    let [ ⊢ ∨Ilp D] = p in 
+    let [ ⊢ D'] = pres [ ⊢ D] [ ⊢ S] in
+      [ ⊢ ∨Ilp D']
 
-  | [ ⊢ step_app_f S] ⇒	?
+  | [ ⊢ step_inr S] ⇒		
+    let [ ⊢ ∨Irp D] = p in 
+    let [ ⊢ D'] = pres [ ⊢ D] [ ⊢ S] in
+      [ ⊢ ∨Irp D']
+
+  | [ ⊢ step_cse S] ⇒	
+    let [ ⊢ ∨Ep D1 (\u.\v. D2) (\u.\v. D3)] = p in 
+    let [ ⊢ D1'] = pres [ ⊢ D1] [ ⊢ S] in
+      [ ⊢ ∨Ep D1' (\u.\v. D2) (\u.\v. D3)]
+
+  | [ ⊢ step_abort S] ⇒		
+    let [ ⊢ ⊥E D] = p in 
+    let [ ⊢ D'] = pres [ ⊢ D] [ ⊢ S] in
+      [ ⊢ ⊥E D']
+
+  | [ ⊢ step_app_f S] ⇒	
+    let [ ⊢ ∀Ep T D] = p in 
+    let [ ⊢ D'] = pres [ ⊢ D] [ ⊢ S] in
+      [ ⊢ ∀Ep T D']
 
   | [ ⊢ step_pair_f S] ⇒	?
   | [ ⊢ step_let_val_f S] ⇒	?
@@ -331,7 +361,7 @@ fn p ⇒ fn s ⇒ case s of
   | [ ⊢ step_inl_cse] ⇒	?
   | [ ⊢ step_inr_cse] ⇒	?
 
-  | [ ⊢ step_neg] ⇒	?
+  | [ ⊢ step_neg V] ⇒	?
 
   | [ ⊢ step_exist] ⇒	?
   
@@ -424,8 +454,8 @@ fn p ⇒ case p of
   | [ ⊢ ∀Ip (\d. D)] ⇒	[ ⊢ val value_lam_f]
   | [ ⊢ ∀Ep D1 T1] ⇒	?
 
-  | [ ⊢ ∃Ip D1 T1] ⇒	?
-  | [ ⊢ ∃Ep D1 (\a. \u. \d. D2)] ⇒	?
+  | [ ⊢ ∃Ip T1 D1] ⇒	?
+  | [ ⊢ ∃Ep D1 (\u. \v. \w. D2)] ⇒	?
 
   | [ ⊢ PLp D] ⇒	?
 
