@@ -177,29 +177,6 @@ LF pt : tm → o → type =
 
 
 
-% Proof of Law of excluded middle with proof terms
-
-% TODO add proof terms
-% rec exm : [ ⊢ pt (M) (A ∨ (¬ A))] =
-% [ ⊢ PL (⊃I \u. 
-%           (⊥E 
-%             (⊃E 
-%               (⊃I \v. 
-%                 (⊃E u (∨Ir v))
-%               )
-%               (¬I \p. \w. ⊥E 
-%                 (⊃E u (∨Il w))
-%               )
-%             )
-%           )
-%         )
-%   ] 
-% ;
-
-
-
-
-
 % TODO prove preservation and progress
 % Examples:
 % https://github.com/Beluga-lang/Beluga/blob/master/examples/mini-ml/tps.bel
@@ -212,8 +189,11 @@ LF value : tm → type =
   | value_lam : value (lam (\x. M x))
   | value_intro_n : value (intro_n (\p. \x. M p x))
   | value_lam_f : value (lam_f (\a. M a))
-  | value_cse : value (cse M (\x. Nl x) (\y. Nr y))
-  | value_let_val_f : value (let_val_f M (\a.\u. N u a))
+  | value_pair : value M → value N → value (pair M N)
+  | value_inl : value M → value (inl M)
+  | value_inr : value M → value (inr M)
+  | value_pair_f : value M → value (pair_f M T)
+  | value_cc : value M → value (cc M)
   ;
 
 
@@ -285,8 +265,6 @@ LF step : tm → tm → type =
   %   app_f (lam_f (\a. M a)) t = [t/a] M
   %   
   %   let_val_f (pair_f M T) (\a.\u. N u a) = [M/u, T/a] N
-  %   
-  %   cc ?
 
   | step_app_lam : value N → step (app (lam (\x. M x)) N) (M N)
 
@@ -297,13 +275,11 @@ LF step : tm → tm → type =
   | step_inl_cse : step (cse (inl M) (\x. Nl x) (\y. Nr y)) (Nl M)
   | step_inr_cse : step (cse (inr M) (\x. Nl x) (\y. Nr y)) (Nr M)
 
-  | step_neg : ?
+  % | step_neg : ?
 
-  | step_exist : ?
+  % | step_exist : ?
   
-  | step_all : ?
-
-  | step_cc : ?
+  % | step_all : ?
 ;
 
 
@@ -314,8 +290,15 @@ LF step : tm → tm → type =
 rec pres : [ ⊢ pt E P] → [ ⊢ step E E'] → [ ⊢ pt E' P] = 
 / total s (pres E P E' p s)/
 fn p ⇒ fn s ⇒ case s of
-  | [ ⊢ step_app_l S] ⇒	?
-  | [ ⊢ step_app_r V S] ⇒	?
+  | [ ⊢ step_app_l S] ⇒	
+    let [ ⊢ ⊃Ep D1 D2] = p in 
+    let [ ⊢ D1'] = pres [ ⊢ D1] [ ⊢ S] in
+      [ ⊢ ⊃Ep D1' D2]
+      
+  | [ ⊢ step_app_r V S] ⇒	
+    let [ ⊢ ⊃Ep D1 D2] = p in 
+    let [ ⊢ D2'] = pres [ ⊢ D2] [ ⊢ S] in
+      [ ⊢ ⊃Ep D1 D2']
 
   | [ ⊢ step_pair_l S] ⇒	?
   | [ ⊢ step_pair_r V S] ⇒	?
@@ -353,8 +336,6 @@ fn p ⇒ fn s ⇒ case s of
   | [ ⊢ step_exist] ⇒	?
   
   | [ ⊢ step_all] ⇒	?
-  
-  | [ ⊢ step_cc] ⇒	?
 ;
 
 
@@ -366,30 +347,85 @@ val : (value E) -> step_or_val E.
 
 % Progress (if we have proof then the proof term is a step or a value)
 rec prog : [ ⊢ pt E P] → [ ⊢ step_or_val E] = 
-/ total p (prog E P p)/
 fn p ⇒ case p of
-  | [ ⊢ ⊤Ip] ⇒	?
+  | [ ⊢ ⊤Ip] ⇒ [ ⊢ val value_nil]
+
   | [ ⊢ ⊥E D] ⇒	?
+    % Wrong
+    % (case prog [ ⊢ D]  of
+    %   | [ ⊢ step_to EV] ⇒ [ ⊢ step_to (step_abort EV)]
+    %   | [ ⊢ val _] ⇒ impossible [ ⊢ D]
+    % )
 
-  | [ ⊢ ⊃Ip D] ⇒	?
-  | [ ⊢ ⊃Ep D1 D2] ⇒	?
+  | [ ⊢ ⊃Ip (\x. \d. D)] ⇒  [ ⊢ val value_lam]
+  | [ ⊢ ⊃Ep D1 D2] ⇒	
+    (case prog [ ⊢ D1]  of
+      | [ ⊢ step_to EV] ⇒ [ ⊢ step_to (step_app_l EV)]
+      | [ ⊢ val value_lam] ⇒ 
+        (case  prog [ |- D2]   of
+          | [ |- step_to EV] => [ |- step_to (step_app_r value_lam EV)]
+          | [ |- val VL] => [ |- step_to (step_app_lam VL)]
+       )
+      | [ ⊢ val value_nil] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val value_intro_n] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val value_lam_f] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_pair _ _)] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_inl _)] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_inr _)] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_pair_f _)] ⇒ impossible [ ⊢ D1] 
+      % | [ ⊢ val (value_cc _)] ⇒ impossible [ ⊢ D1] 
+    )
 
-  | [ ⊢ ∧Ip D1 D2] ⇒	?
-  | [ ⊢ ∧Elp D] ⇒	?
-  | [ ⊢ ∧Erp D] ⇒	?
+  | [ ⊢ ∧Ip D1 D2] ⇒	
+    (case prog [ ⊢ D1]  of
+      | [ ⊢ step_to EV] ⇒ [ ⊢ step_to (step_pair_l EV)]
+      | [ ⊢ val VL1] ⇒ 
+        (case  prog [ |- D2]   of
+          | [ |- step_to EV] => [ |- step_to (step_pair_r VL1 EV)]
+          | [ |- val VL2] => [ |- val (value_pair VL1 VL2)]
+       )
+    )
+
+  | [ ⊢ ∧Elp D] ⇒		
+    (case prog [ ⊢ D]  of
+      | [ ⊢ step_to EV] ⇒ [ ⊢ step_to (step_fst EV)]
+      | [ ⊢ val (value_pair _ _)] ⇒ [ ⊢ step_to step_fst_pair]
+      | [ ⊢ val value_nil] ⇒ impossible [ ⊢ D] 
+      | [ ⊢ val value_intro_n] ⇒ impossible [ ⊢ D] 
+      | [ ⊢ val value_lam_f] ⇒ impossible [ ⊢ D] 
+      | [ ⊢ val value_lam] ⇒ impossible [ ⊢ D] 
+      | [ ⊢ val (value_inl _)] ⇒ impossible [ ⊢ D] 
+      | [ ⊢ val (value_inr _)] ⇒ impossible [ ⊢ D] 
+      | [ ⊢ val (value_pair_f _)] ⇒ impossible [ ⊢ D] 
+      % | [ ⊢ val (value_cc _)] ⇒ impossible [ ⊢ D] 
+    )
+
+  | [ ⊢ ∧Erp D] ⇒			
+    (case prog [ ⊢ D]  of
+      | [ ⊢ step_to EV] ⇒ [ ⊢ step_to (step_snd EV)]
+      | [ ⊢ val (value_pair _ _)] ⇒ [ ⊢ step_to step_snd_pair]
+      | [ ⊢ val value_nil] ⇒ impossible [ ⊢ D] 
+      | [ ⊢ val value_intro_n] ⇒ impossible [ ⊢ D] 
+      | [ ⊢ val value_lam_f] ⇒ impossible [ ⊢ D] 
+      | [ ⊢ val value_lam] ⇒ impossible [ ⊢ D] 
+      | [ ⊢ val (value_inl _)] ⇒ impossible [ ⊢ D] 
+      | [ ⊢ val (value_inr _)] ⇒ impossible [ ⊢ D] 
+      | [ ⊢ val (value_pair_f _)] ⇒ impossible [ ⊢ D] 
+      % | [ ⊢ val (value_cc _)] ⇒ impossible [ ⊢ D] 
+    )
 
   | [ ⊢ ∨Ilp D] ⇒	?
   | [ ⊢ ∨Irp D] ⇒	?
-  | [ ⊢ ∨Ep D1 D2 D3] ⇒	?
+  | [ ⊢ ∨Ep D1 (\a. \d1. D2) (\b. \d2. D3)] ⇒	?
 
-  | [ ⊢ ¬Ip D] ⇒	?
+  | [ ⊢ ¬Ip (\x. \p. \d. D)] ⇒  [ ⊢ val value_intro_n]
   | [ ⊢ ¬Ep D1 D2] ⇒	?
 
-  | [ ⊢ ∀Ip D] ⇒	?
-  | [ ⊢ ∀Ep D] ⇒	?
+  | [ ⊢ ∀Ip (\d. D)] ⇒	[ ⊢ val value_lam_f]
+  | [ ⊢ ∀Ep D1 T1] ⇒	?
 
-  | [ ⊢ ∃Ip D] ⇒	?
-  | [ ⊢ ∃Ep D1 D2] ⇒	?
+  | [ ⊢ ∃Ip D1 T1] ⇒	?
+  | [ ⊢ ∃Ep D1 (\a. \u. \d. D2)] ⇒	?
 
   | [ ⊢ PLp D] ⇒	?
 
