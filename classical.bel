@@ -193,6 +193,7 @@ LF value : tm → type =
   | value_inl : value M → value (inl M)
   | value_inr : value M → value (inr M)
   | value_pair_f : value M → value (pair_f M T)
+  | value_callcc : value M → value (callcc M)
   ;
 
 
@@ -280,8 +281,7 @@ LF step : tm → tm → type =
   
   | step_exist : step (let_val_f (pair_f M t) (\a.\u. N u a)) (N M t)
 
-  % TODO
-  | step_callcc_ : step 
+  | step_callcc_abort : step 
         (app (lam (\x. M x)) (callcc (lam (\k. N k)))) 
         (app (lam (\x. M x)) (app (lam (\k. N k)) (lam (\x. M x))))
    
@@ -407,9 +407,10 @@ fn p ⇒ fn s ⇒ case s of
     let [ ⊢ ∀Ep T1 (∀Ip (\a. D1))] = p in
       [ ⊢ D1[T1]]
 
-  | [ ⊢ step_callcc_] ⇒	
-    let [ ⊢ ⊃Ep (⊃Ip (\u. \v. M)) (PLp (⊃Ip (\x. \y. N)))] = p in
-      [ ⊢ ⊃Ep (⊃Ip (\u. \v. M)) (⊃Ep (⊃Ip (\x. \y. N)) (⊃Ip (\u. \v. M)))]
+  % TODO
+  % | [ ⊢ step_callcc_lam] ⇒	?
+    % let [ ⊢ ⊃Ep (⊃Ip (\u. \v. M)) (PLp (⊃Ip (\x. \y. N)))] = p in
+    %   [ ⊢ ⊃Ep (⊃Ip (\u. \v. M)) (⊃Ep (⊃Ip (\x. \y. N)) (⊃Ip (\u. \v. M)))]
 ;
 
 
@@ -570,7 +571,19 @@ fn p ⇒ case p of
       | [ ⊢ val value_lam_f] ⇒ impossible [ ⊢ D1] 
     )
 
-  | [ ⊢ PLp D] ⇒	?
+  | [ ⊢ PLp D1] ⇒	
+    (case prog [ ⊢ D1]  of
+      | [ ⊢ step_to EV] ⇒ [ ⊢ step_to (step_callcc EV)]
+      % TODO
+      | [ ⊢ val value_lam] ⇒ [ ⊢ ?]
+      | [ ⊢ val (value_pair_f _)] ⇒ impossible [ ⊢ D1]
+      | [ ⊢ val value_nil] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val value_intro_n] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_pair _ _)] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_inl _)] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_inr _)] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val value_lam_f] ⇒ impossible [ ⊢ D1] 
+    )
 
 ;
 
