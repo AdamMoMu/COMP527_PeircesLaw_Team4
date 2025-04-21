@@ -118,8 +118,8 @@ LF tm : type =
   | intro_n : (tm → tm) → tm
 
   % Peirces Law proof term
-  % call with current continuation: cc
-  | cc : tm → tm
+  % call with current continuation: callcc
+  | callcc : tm → tm
 ;
 
 
@@ -171,7 +171,7 @@ LF pt : tm → o → type =
 	 → pt (let_val_f M (\a.\u. N u a)) C
 
   % Peirce's Law 
-  | PLp: pt M ((A ⊃ B) ⊃ A) → pt (cc M) A
+  | PLp: pt M ((A ⊃ B) ⊃ A) → pt (callcc M) A
 
 ;
 
@@ -193,7 +193,6 @@ LF value : tm → type =
   | value_inl : value M → value (inl M)
   | value_inr : value M → value (inr M)
   | value_pair_f : value M → value (pair_f M T)
-  % callcc value? TODO
   ;
 
 
@@ -246,8 +245,8 @@ LF step : tm → tm → type =
   | step_abort_n_r : (value A) → (step B1 B2) → (step (abort_n A B1) (abort_n A B2))
 
   % Peirces Law proof term
-  % call with current continuation: cc
-  | step_cc : (step A1 A2) → (step (cc A1) (cc A2))
+  % call with current continuation: callcc
+  | step_callcc : (step A1 A2) → (step (callcc A1) (callcc A2))
 
 
   % Principal Cases
@@ -282,7 +281,10 @@ LF step : tm → tm → type =
   | step_exist : step (let_val_f (pair_f M t) (\a.\u. N u a)) (N M t)
 
   % TODO
-  | step_cc_abort : step (cc (lam (\k. (app k N)))) N
+  | step_callcc_ : step 
+        (app (lam (\x. M x)) (callcc (lam (\k. N k)))) 
+        (app (lam (\x. M x)) (app (lam (\k. N k)) (lam (\x. M x))))
+   
 ;
 
 
@@ -368,7 +370,7 @@ fn p ⇒ fn s ⇒ case s of
     let [ ⊢ D2'] = pres [ ⊢ D2] [ ⊢ S] in
       [ ⊢ ¬Ep D1 D2']
 
-  | [ ⊢ step_cc S] ⇒	
+  | [ ⊢ step_callcc S] ⇒	
     let [ ⊢ PLp D] = p in 
     let [ ⊢ D'] = pres [ ⊢ D] [ ⊢ S] in
       [ ⊢ PLp D']
@@ -405,10 +407,9 @@ fn p ⇒ fn s ⇒ case s of
     let [ ⊢ ∀Ep T1 (∀Ip (\a. D1))] = p in
       [ ⊢ D1[T1]]
 
-  % TODO fix
-  | [ ⊢ step_cc_abort] ⇒	?
-    % let [ ⊢ PLp (⊃Ip (\u. \v. (⊃Ep D1 D2)))] = p in
-    %   [ ⊢ D2[_,D1[_,_]]]
+  | [ ⊢ step_callcc_] ⇒	
+    let [ ⊢ ⊃Ep (⊃Ip (\u. \v. M)) (PLp (⊃Ip (\x. \y. N)))] = p in
+      [ ⊢ ⊃Ep (⊃Ip (\u. \v. M)) (⊃Ep (⊃Ip (\x. \y. N)) (⊃Ip (\u. \v. M)))]
 ;
 
 
@@ -435,7 +436,6 @@ fn p ⇒ case p of
       | [ ⊢ val (value_inr _)] ⇒ impossible [ ⊢ D1] 
       | [ ⊢ val (value_pair_f _)] ⇒ impossible [ ⊢ D1]
       | [ ⊢ val (value_lam)] ⇒ impossible [ ⊢ D1]
-      % | [ ⊢ val (value_cc _)] ⇒ impossible [ ⊢ D1] 
     )
 
   | [ ⊢ ⊃Ip (\x. \d. D)] ⇒  [ ⊢ val value_lam]
@@ -454,7 +454,6 @@ fn p ⇒ case p of
       | [ ⊢ val (value_inl _)] ⇒ impossible [ ⊢ D1] 
       | [ ⊢ val (value_inr _)] ⇒ impossible [ ⊢ D1] 
       | [ ⊢ val (value_pair_f _)] ⇒ impossible [ ⊢ D1] 
-      % | [ ⊢ val (value_cc _)] ⇒ impossible [ ⊢ D1] 
     )
 
   | [ ⊢ ∧Ip D1 D2] ⇒	
@@ -478,7 +477,6 @@ fn p ⇒ case p of
       | [ ⊢ val (value_inl _)] ⇒ impossible [ ⊢ D] 
       | [ ⊢ val (value_inr _)] ⇒ impossible [ ⊢ D] 
       | [ ⊢ val (value_pair_f _)] ⇒ impossible [ ⊢ D] 
-      % | [ ⊢ val (value_cc _)] ⇒ impossible [ ⊢ D] 
     )
 
   | [ ⊢ ∧Erp D] ⇒			
@@ -492,7 +490,6 @@ fn p ⇒ case p of
       | [ ⊢ val (value_inl _)] ⇒ impossible [ ⊢ D] 
       | [ ⊢ val (value_inr _)] ⇒ impossible [ ⊢ D] 
       | [ ⊢ val (value_pair_f _)] ⇒ impossible [ ⊢ D] 
-      % | [ ⊢ val (value_cc _)] ⇒ impossible [ ⊢ D] 
     )
 
   | [ ⊢ ∨Ilp D] ⇒		
@@ -518,7 +515,6 @@ fn p ⇒ case p of
       | [ ⊢ val (value_pair _ _)] ⇒ impossible [ ⊢ D1] 
       | [ ⊢ val (value_pair_f _)] ⇒ impossible [ ⊢ D1] 
       | [ ⊢ val value_lam] ⇒ impossible [ ⊢ D1] 
-      % | [ ⊢ val (value_cc _)] ⇒ impossible [ ⊢ D1] 
     )
 
 
@@ -539,7 +535,6 @@ fn p ⇒ case p of
       | [ ⊢ val (value_inl _)] ⇒ impossible [ ⊢ D1] 
       | [ ⊢ val (value_inr _)] ⇒ impossible [ ⊢ D1] 
       | [ ⊢ val (value_pair_f _)] ⇒ impossible [ ⊢ D1] 
-      % | [ ⊢ val (value_cc _)] ⇒ impossible [ ⊢ D1] 
     )
 
   | [ ⊢ ∀Ip (\d. D)] ⇒	[ ⊢ val value_lam_f]
@@ -554,7 +549,6 @@ fn p ⇒ case p of
       | [ ⊢ val (value_inl _)] ⇒ impossible [ ⊢ D1] 
       | [ ⊢ val (value_inr _)] ⇒ impossible [ ⊢ D1] 
       | [ ⊢ val (value_pair_f _)] ⇒ impossible [ ⊢ D1] 
-      % | [ ⊢ val (value_cc _)] ⇒ impossible [ ⊢ D1] 
     )
 
   | [ ⊢ ∃Ip T1 D1] ⇒		
@@ -574,7 +568,6 @@ fn p ⇒ case p of
       | [ ⊢ val (value_inl _)] ⇒ impossible [ ⊢ D1] 
       | [ ⊢ val (value_inr _)] ⇒ impossible [ ⊢ D1] 
       | [ ⊢ val value_lam_f] ⇒ impossible [ ⊢ D1] 
-      % | [ ⊢ val (value_cc _)] ⇒ impossible [ ⊢ D1] 
     )
 
   | [ ⊢ PLp D] ⇒	?
