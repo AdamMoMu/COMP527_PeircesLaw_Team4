@@ -8,7 +8,7 @@ LF o : type =  % formulas
   | ⊥ : o
   | ∧   : o → o → o
   | ∨   : o → o → o
-  | ¬  : o → o
+  | ¬   : o → o 
   | ∀  : (i → o) → o
   | ∃  : (i → o) → o
 ;
@@ -43,11 +43,11 @@ LF cnd : o → type =
   | ⊥E : cnd ⊥ → cnd C
 
   % Negation
-  | ¬I : ({p:o} cnd A → cnd p)
+  | ¬I : ({p:o} cnd A → cnd ⊥)
 	 → cnd (¬ A)
 	       
   | ¬E : cnd (¬ A) → cnd A
-	 → cnd C
+	 → cnd ⊥
 	       
 
   % First Order Logic
@@ -79,8 +79,8 @@ rec exm : [ ⊢ cnd (A ∨ (¬ A))] =
               (⊃I \v. 
                 (⊃E u (∨Ir v))
               )
-              (¬I \p. \w. ⊥E 
-                (⊃E u (∨Il w))
+              (¬I \p. \w. 
+                ⊃E u (∨Il w)
               )
             )
           )
@@ -115,7 +115,7 @@ LF tm : type =
 
   % Negation
   | abort_n : tm → tm → tm
-  | intro_n : (o → tm → tm) → tm
+  | intro_n : (tm → tm) → tm
 
   % Peirces Law proof term
   % call with current continuation: cc
@@ -150,11 +150,11 @@ LF pt : tm → o → type =
   | ⊥E : pt M ⊥ → pt (abort M) C
 
   % Negation
-  | ¬Ip : ({x : tm}{p:o} pt x A → pt (M p x) p)
-	 → pt (intro_n (\p. \x. M p x)) (¬ A)
+  | ¬Ip : ({x : tm} pt x A → pt (M x) ⊥)
+	 → pt (intro_n (\x. M x)) (¬ A)
 	       
   | ¬Ep : pt M (¬ A) → pt N A
-	 → pt (abort_n M N) C
+	 → pt (abort_n M N) ⊥
 	       
   % First Order Logic
   | ∀Ip : ({a:i} pt (M a) (A a)) 
@@ -187,7 +187,7 @@ LF pt : tm → o → type =
 LF value : tm → type =
   | value_nil : value nil
   | value_lam : value (lam (\x. M x))
-  | value_intro_n : value (intro_n (\p. \x. M p x))
+  | value_intro_n : value (intro_n (\x. M x))
   | value_lam_f : value (lam_f (\a. M a))
   | value_pair : value M → value N → value (pair M N)
   | value_inl : value M → value (inl M)
@@ -275,7 +275,7 @@ LF step : tm → tm → type =
   | step_inl_cse : step (cse (inl M) (\x. Nl x) (\y. Nr y)) (Nl M)
   | step_inr_cse : step (cse (inr M) (\x. Nl x) (\y. Nr y)) (Nr M)
 
-  | step_neg : value N → step (abort_n (intro_n (\p. \x. M p x)) N) (M C N)
+  | step_neg : value N → step (abort_n (intro_n (\x. M x)) N) (M N)
 
   | step_all : step (app_f (lam_f (\a. M a)) t) (M t)
   
@@ -345,27 +345,62 @@ fn p ⇒ fn s ⇒ case s of
     let [ ⊢ D'] = pres [ ⊢ D] [ ⊢ S] in
       [ ⊢ ∀Ep T D']
 
-  | [ ⊢ step_pair_f S] ⇒	?
-  | [ ⊢ step_let_val_f S] ⇒	?
+  | [ ⊢ step_pair_f S] ⇒	
+    let [ ⊢ ∃Ip T D] = p in 
+    let [ ⊢ D'] = pres [ ⊢ D] [ ⊢ S] in
+      [ ⊢ ∃Ip T D']
+
+  | [ ⊢ step_let_val_f S] ⇒	
+    let [ ⊢ ∃Ep D1 (\u.\v.\w. D2)] = p in 
+    let [ ⊢ D1'] = pres [ ⊢ D1] [ ⊢ S] in
+      [ ⊢ ∃Ep D1' (\u.\v.\w. D2)]
   
-  | [ ⊢ step_abort_n_l S] ⇒	?
-  | [ ⊢ step_abort_n_r S V] ⇒	?
+  | [ ⊢ step_abort_n_l S] ⇒	
+    let [ ⊢ ¬Ep D1 D2] = p in 
+    let [ ⊢ D1'] = pres [ ⊢ D1] [ ⊢ S] in
+      [ ⊢ ¬Ep D1' D2]
 
-  | [ ⊢ step_cc S] ⇒	?
+  | [ ⊢ step_abort_n_r V S] ⇒	
+    let [ ⊢ ¬Ep D1 D2] = p in 
+    let [ ⊢ D2'] = pres [ ⊢ D2] [ ⊢ S] in
+      [ ⊢ ¬Ep D1 D2']
 
-  | [ ⊢ step_app_lam V] ⇒	?
+  | [ ⊢ step_cc S] ⇒	
+    let [ ⊢ PLp D] = p in 
+    let [ ⊢ D'] = pres [ ⊢ D] [ ⊢ S] in
+      [ ⊢ PLp D']
 
-  | [ ⊢ step_fst_pair] ⇒	?
-  | [ ⊢ step_snd_pair] ⇒	?
+  | [ ⊢ step_app_lam V] ⇒	
+    let [ ⊢ ⊃Ep (⊃Ip (\v. \u. D1)) D2] = p in
+      [ ⊢ D1[_,D2]]
 
-  | [ ⊢ step_inl_cse] ⇒	?
-  | [ ⊢ step_inr_cse] ⇒	?
+  | [ ⊢ step_fst_pair] ⇒	
+    let [ ⊢ ∧Elp (∧Ip D1 D2)] = p in
+      [ ⊢ D1]
 
-  | [ ⊢ step_neg V] ⇒	?
+  | [ ⊢ step_snd_pair] ⇒	
+    let [ ⊢ ∧Erp (∧Ip D1 D2)] = p in
+      [ ⊢ D2]
 
-  | [ ⊢ step_exist] ⇒	?
+  | [ ⊢ step_inl_cse] ⇒	
+    let [ ⊢ ∨Ep (∨Ilp D1) (\u. \v. D2) (\u. \v. D3)] = p in
+      [ ⊢ D2[_,D1]]
+
+  | [ ⊢ step_inr_cse] ⇒	
+    let [ ⊢ ∨Ep (∨Irp D1) (\u. \v. D2) (\u. \v. D3)] = p in
+      [ ⊢ D3[_,D1]]
+
+  | [ ⊢ step_neg V] ⇒	
+    let [ ⊢ ¬Ep (¬Ip (\u. \v. D1)) D2] = p in
+      [ ⊢ D1[_,D2]]
+
+  | [ ⊢ step_exist] ⇒	
+    let [ ⊢ ∃Ep (∃Ip T D1) (\u. \v. \w. D2)] = p in
+      [ ⊢ D2[T, _, D1]]
   
-  | [ ⊢ step_all] ⇒	?
+  | [ ⊢ step_all] ⇒	
+    let [ ⊢ ∀Ep T1 (∀Ip (\a. D1))] = p in
+      [ ⊢ D1[T1]]
 ;
 
 
@@ -448,11 +483,11 @@ fn p ⇒ case p of
   | [ ⊢ ∨Irp D] ⇒	?
   | [ ⊢ ∨Ep D1 (\a. \d1. D2) (\b. \d2. D3)] ⇒	?
 
-  | [ ⊢ ¬Ip (\x. \p. \d. D)] ⇒  [ ⊢ val value_intro_n]
+  | [ ⊢ ¬Ip (\u. \v. D)] ⇒  [ ⊢ val value_intro_n]
   | [ ⊢ ¬Ep D1 D2] ⇒	?
 
   | [ ⊢ ∀Ip (\d. D)] ⇒	[ ⊢ val value_lam_f]
-  | [ ⊢ ∀Ep D1 T1] ⇒	?
+  | [ ⊢ ∀Ep T1 D1] ⇒	?
 
   | [ ⊢ ∃Ip T1 D1] ⇒	?
   | [ ⊢ ∃Ep D1 (\u. \v. \w. D2)] ⇒	?
