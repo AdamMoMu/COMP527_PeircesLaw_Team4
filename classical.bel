@@ -193,7 +193,7 @@ LF value : tm → type =
   | value_inl : value M → value (inl M)
   | value_inr : value M → value (inr M)
   | value_pair_f : value M → value (pair_f M T)
-  | value_cc : value M → value (cc M)
+  % callcc value? TODO
   ;
 
 
@@ -280,6 +280,9 @@ LF step : tm → tm → type =
   | step_all : step (app_f (lam_f (\a. M a)) t) (M t)
   
   | step_exist : step (let_val_f (pair_f M t) (\a.\u. N u a)) (N M t)
+
+  % TODO
+  | step_cc_abort : step (cc (lam (\k. (app k N)))) N
 ;
 
 
@@ -401,6 +404,11 @@ fn p ⇒ fn s ⇒ case s of
   | [ ⊢ step_all] ⇒	
     let [ ⊢ ∀Ep T1 (∀Ip (\a. D1))] = p in
       [ ⊢ D1[T1]]
+
+  % TODO fix
+  | [ ⊢ step_cc_abort] ⇒	?
+    % let [ ⊢ PLp (⊃Ip (\u. \v. (⊃Ep D1 D2)))] = p in
+    %   [ ⊢ D2[_,D1[_,_]]]
 ;
 
 
@@ -412,15 +420,23 @@ val : (value E) -> step_or_val E.
 
 % Progress (if we have proof then the proof term is a step or a value)
 rec prog : [ ⊢ pt E P] → [ ⊢ step_or_val E] = 
+/ total p (prog E P p)/
 fn p ⇒ case p of
   | [ ⊢ ⊤Ip] ⇒ [ ⊢ val value_nil]
 
-  | [ ⊢ ⊥E D] ⇒	?
-    % Wrong
-    % (case prog [ ⊢ D]  of
-    %   | [ ⊢ step_to EV] ⇒ [ ⊢ step_to (step_abort EV)]
-    %   | [ ⊢ val _] ⇒ impossible [ ⊢ D]
-    % )
+  | [ ⊢ ⊥E D1] ⇒	
+    (case prog [ ⊢ D1]  of
+      | [ ⊢ step_to EV] ⇒ [ ⊢ step_to (step_abort EV)]
+      | [ ⊢ val value_nil] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val value_intro_n] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val value_lam_f] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_pair _ _)] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_inl _)] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_inr _)] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_pair_f _)] ⇒ impossible [ ⊢ D1]
+      | [ ⊢ val (value_lam)] ⇒ impossible [ ⊢ D1]
+      % | [ ⊢ val (value_cc _)] ⇒ impossible [ ⊢ D1] 
+    )
 
   | [ ⊢ ⊃Ip (\x. \d. D)] ⇒  [ ⊢ val value_lam]
   | [ ⊢ ⊃Ep D1 D2] ⇒	
@@ -479,18 +495,87 @@ fn p ⇒ case p of
       % | [ ⊢ val (value_cc _)] ⇒ impossible [ ⊢ D] 
     )
 
-  | [ ⊢ ∨Ilp D] ⇒	?
-  | [ ⊢ ∨Irp D] ⇒	?
-  | [ ⊢ ∨Ep D1 (\a. \d1. D2) (\b. \d2. D3)] ⇒	?
+  | [ ⊢ ∨Ilp D] ⇒		
+    (case prog [ ⊢ D]  of
+      | [ ⊢ step_to EV] ⇒ [ ⊢ step_to (step_inl EV)]
+      | [ ⊢ val V] ⇒ [ ⊢ val (value_inl V)] 
+    )
+  
+  | [ ⊢ ∨Irp D] ⇒		
+    (case prog [ ⊢ D]  of
+      | [ ⊢ step_to EV] ⇒ [ ⊢ step_to (step_inr EV)]
+      | [ ⊢ val V] ⇒ [ ⊢ val (value_inr V)] 
+    )
+
+  | [ ⊢ ∨Ep D1 (\a. \d1. D2) (\b. \d2. D3)] ⇒	
+    (case prog [ ⊢ D1]  of
+      | [ ⊢ step_to EV] ⇒ [ ⊢ step_to (step_cse EV)]
+      | [ ⊢ val (value_inl V)] ⇒ [ ⊢ step_to (step_inl_cse)]
+      | [ ⊢ val (value_inr V)] ⇒ [ ⊢ step_to (step_inr_cse)]
+      | [ ⊢ val value_nil] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val value_intro_n] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val value_lam_f] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_pair _ _)] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_pair_f _)] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val value_lam] ⇒ impossible [ ⊢ D1] 
+      % | [ ⊢ val (value_cc _)] ⇒ impossible [ ⊢ D1] 
+    )
+
 
   | [ ⊢ ¬Ip (\u. \v. D)] ⇒  [ ⊢ val value_intro_n]
-  | [ ⊢ ¬Ep D1 D2] ⇒	?
+
+  | [ ⊢ ¬Ep D1 D2] ⇒	
+    (case prog [ ⊢ D1]  of
+      | [ ⊢ step_to EV] ⇒ [ ⊢ step_to (step_abort_n_l EV)]
+      | [ ⊢ val value_intro_n] ⇒ 
+        (case  prog [ |- D2]   of
+          | [ |- step_to EV] => [ |- step_to (step_abort_n_r value_intro_n EV)]
+          | [ |- val VL] => [ |- step_to (step_neg VL)]
+       )
+      | [ ⊢ val value_nil] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val value_lam] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val value_lam_f] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_pair _ _)] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_inl _)] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_inr _)] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_pair_f _)] ⇒ impossible [ ⊢ D1] 
+      % | [ ⊢ val (value_cc _)] ⇒ impossible [ ⊢ D1] 
+    )
 
   | [ ⊢ ∀Ip (\d. D)] ⇒	[ ⊢ val value_lam_f]
-  | [ ⊢ ∀Ep T1 D1] ⇒	?
+  | [ ⊢ ∀Ep T1 D1] ⇒	
+    (case prog [ ⊢ D1]  of
+      | [ ⊢ step_to EV] ⇒ [ ⊢ step_to (step_app_f EV)]
+      | [ ⊢ val value_lam_f] ⇒ [ ⊢ step_to (step_all)]
+      | [ ⊢ val value_nil] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val value_lam] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val value_intro_n] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_pair _ _)] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_inl _)] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_inr _)] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_pair_f _)] ⇒ impossible [ ⊢ D1] 
+      % | [ ⊢ val (value_cc _)] ⇒ impossible [ ⊢ D1] 
+    )
 
-  | [ ⊢ ∃Ip T1 D1] ⇒	?
-  | [ ⊢ ∃Ep D1 (\u. \v. \w. D2)] ⇒	?
+  | [ ⊢ ∃Ip T1 D1] ⇒		
+    (case prog [ ⊢ D1]  of
+      | [ ⊢ step_to EV] ⇒ [ ⊢ step_to (step_pair_f EV)]
+      | [ ⊢ val V] ⇒ [ ⊢ val (value_pair_f V)] 
+    )
+
+  | [ ⊢ ∃Ep D1 (\u. \v. \w. D2)] ⇒	
+    (case prog [ ⊢ D1]  of
+      | [ ⊢ step_to EV] ⇒ [ ⊢ step_to (step_let_val_f EV)]
+      | [ ⊢ val (value_pair_f V)] ⇒ [ ⊢ step_to (step_exist)]
+      | [ ⊢ val value_nil] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val value_lam] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val value_intro_n] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_pair _ _)] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_inl _)] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val (value_inr _)] ⇒ impossible [ ⊢ D1] 
+      | [ ⊢ val value_lam_f] ⇒ impossible [ ⊢ D1] 
+      % | [ ⊢ val (value_cc _)] ⇒ impossible [ ⊢ D1] 
+    )
 
   | [ ⊢ PLp D] ⇒	?
 
