@@ -179,12 +179,12 @@ LF value : tm → type =
 
 
 % Terminal
-LF term : joint → type =
-  | term_taut : term (config taut halt)
-  | term_lam : term (config (lam (\x. M)) halt)
-  | term_pair : value M → value N → term (config (pair M N) halt)
-  | term_inl : value M → term (config (inl M) halt)
-  | term_inr : value M → term (config (inr M) halt)
+LF terminal : joint → type =
+  | term_taut : terminal (config taut halt)
+  | term_lam : terminal (config (lam (\x. M)) halt)
+  | term_pair : value M → value N → terminal (config (pair M N) halt)
+  | term_inl : value M → terminal (config (inl M) halt)
+  | term_inr : value M → terminal (config (inr M) halt)
 ;
 
 
@@ -380,7 +380,7 @@ inductive Result_Prog : ctype =
       → Result_Prog 
 
 | Res_Term : {C : [ ⊢ joint]} 
-      → [ ⊢ term C]
+      → [ ⊢ terminal C]
       → Result_Prog 
 ;
 
@@ -400,7 +400,7 @@ fn c ⇒ case c of
   %          term (config (lam (\x. M)) halt)
   %        Actual type:
   %          term (config (lam (\x. ?M_7334[^0][])) halt)
-  
+
   | [ ⊢ config (lam (\x. M)) halt] ⇒ Res_Term [ ⊢ config (lam (\x. M)) halt] [ ⊢ term_lam]
 
   % Error
@@ -418,10 +418,10 @@ fn c ⇒ case c of
   %            (config ?N_7339[^0][]
   %            (s_app (lam (\x. ?M'_7338[^0][])) ?k_7340[^0][]))
   
-  | [ ⊢ config (lam (\x. M)) (s_lam N k)] ⇒ ?
-  % Res_Step [ ⊢ config (lam (\x. M)) (s_lam N k)] 
-            %  [ ⊢ (config N (s_app (lam (\x. M)) k))] 
-            %  [ ⊢ (step_app value_lam)]
+  | [ ⊢ config (lam (\x. M)) (s_lam N k)] ⇒ Res_Step [ ⊢ config (lam (\x. M)) (s_lam N k)] 
+                                                      [ ⊢ (config N (s_app (lam (\x. M)) k))] 
+                                                      [ ⊢ (step_app value_lam)]
+  
   
   | [ ⊢ config (lam (\x. M)) (s_app (lam (\y. N)) k)] ⇒ ?
   | [ ⊢ config (lam (\x. M)) (s_pair_l N k)] ⇒ ?
