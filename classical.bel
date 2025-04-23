@@ -58,9 +58,6 @@ rec exm : [ ⊢ cnd (A ∨ (A ⊃ ⊥))] =
 
 
 
-hole : type.
-
-
 % Proof Terms
 LF tm : type =
   | app : tm → tm → tm
@@ -82,21 +79,21 @@ LF tm : type =
   | letcc : (stack → tm) → tm
 
 
-% Stack with holes
+% Stack 
 and stack : type =
-  | s_lam : hole → tm → stack → stack % app _ N k
-  | s_app : tm → hole → stack → stack % app M _
+  | s_lam : tm → stack → stack % app _ N k
+  | s_app : tm → stack → stack % app M _
   
-  | s_pair_l : hole → tm → stack → stack
-  | s_pair_r : tm → hole → stack → stack
-  | s_fst : hole → stack → stack
-  | s_snd : hole → stack → stack
+  | s_pair_l : tm → stack → stack
+  | s_pair_r : tm → stack → stack
+  | s_fst : stack → stack
+  | s_snd : stack → stack
 
-  | s_inl : hole → stack → stack
-  | s_inr : hole → stack → stack
-  | s_cse : hole → (tm → tm) → (tm → tm) → stack → stack
+  | s_inl : stack → stack
+  | s_inr : stack → stack
+  | s_cse : (tm → tm) → (tm → tm) → stack → stack
 
-  | s_abort : hole → stack → stack
+  | s_abort : stack → stack
 
   | halt : stack % no need for k since its end of program
 
@@ -135,24 +132,24 @@ LF pt_true : tm → o → type =
 
 and pt_false: stack → o → type = 
   | Ax : pt_false halt M
-  | ⊥FI : pt_false k M → pt_false (s_abort _ k) ⊥
+  | ⊥FI : pt_false k M → pt_false (s_abort k) ⊥
 
-  | ⊃FI : pt_true N A → pt_false k B → pt_false (s_lam _ N k) (A ⊃ B)
-  | ⊃FE : pt_true M (A ⊃ B) → pt_false k B → pt_false (s_app M _ k) A
+  | ⊃FI : pt_true N A → pt_false k B → pt_false (s_lam N k) (A ⊃ B)
+  | ⊃FE : pt_true M (A ⊃ B) → pt_false k B → pt_false (s_app M k) A
 
-  | ∧FEl : pt_true N B → pt_false k (A ∧ B) → pt_false (s_pair_l _ N k) A
-  | ∧FEr : pt_true M A → pt_false k (A ∧ B) → pt_false (s_pair_r M _ k) B
+  | ∧FEl : pt_true N B → pt_false k (A ∧ B) → pt_false (s_pair_l N k) A
+  | ∧FEr : pt_true M A → pt_false k (A ∧ B) → pt_false (s_pair_r M k) B
 
-  | ∧FIl : pt_false k A → pt_false (s_fst _ k) (A ∧ B)
-  | ∧FIr : pt_false k B → pt_false (s_snd _ k) (A ∧ B)
+  | ∧FIl : pt_false k A → pt_false (s_fst k) (A ∧ B)
+  | ∧FIr : pt_false k B → pt_false (s_snd k) (A ∧ B)
 
-  | ∨FEl : pt_false k (A ∨ B) → pt_false (s_inl _ k) A
-  | ∨FEr : pt_false k (A ∨ B) → pt_false (s_inr _ k) B
+  | ∨FEl : pt_false k (A ∨ B) → pt_false (s_inl k) A
+  | ∨FEr : pt_false k (A ∨ B) → pt_false (s_inr k) B
 
   | ∨FI  :({x : tm} pt_true x A → pt_true M C)
         → ({y : tm} pt_true y B → pt_true N C)   
         → pt_false k C
-        → pt_false (s_cse _ (\x. M) (\y. N) k) (A ∨ B)
+        → pt_false (s_cse (\x. M) (\y. N) k) (A ∨ B)
 ;
 
 
@@ -193,38 +190,38 @@ LF term : joint → type =
 
 % Small step
 LF step : joint → joint → type = 
-  | step_abort : (step (config (abort M) k) (config M (s_abort _ k)))
+  | step_abort : (step (config (abort M) k) (config M (s_abort k)))
 
   | step_throw : (step (config (throw k' M') k) (config M' k'))
 
-  | step_lam : (step (config (app M N) k) (config M (s_lam _ N k)))
+  | step_lam : (step (config (app M N) k) (config M (s_lam N k)))
 
-  | step_app : (step (config (lam (\x. M')) (s_lam _ N k)) (config N (s_app (lam (\x. M')) _ k)))
+  | step_app : (step (config (lam (\x. M')) (s_lam N k)) (config N (s_app (lam (\x. M')) k)))
 
-  | step_app_lam : value v → (step (config v (s_app (lam (\x. (M' x))) _ k)) (config (M' v) k))
+  | step_app_lam : value v → (step (config v (s_app (lam (\x. (M' x))) k)) (config (M' v) k))
 
-  | step_pair_l : (step (config (pair M N) k) (config M (s_pair_l _ N k)))
+  | step_pair_l : (step (config (pair M N) k) (config M (s_pair_l N k)))
 
-  | step_pair_r : value v → (step (config v (s_pair_l _ N k)) (config N (s_pair_r v _ k)))
+  | step_pair_r : value v → (step (config v (s_pair_l N k)) (config N (s_pair_r v k)))
 
-  | step_pair_comp : value v → value w → (step (config w (s_pair_r v _ k)) (config (pair v w) k))
+  | step_pair_comp : value v → value w → (step (config w (s_pair_r v k)) (config (pair v w) k))
 
-  | step_fst : (step (config (fst M) k) (config M (s_fst _ k)))
-  | step_snd : (step (config (snd M) k) (config M (s_snd _ k)))
+  | step_fst : (step (config (fst M) k) (config M (s_fst k)))
+  | step_snd : (step (config (snd M) k) (config M (s_snd k)))
 
-  | step_fst_pair : value v → value w → (step (config (pair v w) (s_fst _ k)) (config v k))
-  | step_snd_pair : value v → value w → (step (config (pair v w) (s_snd _ k)) (config w k))
+  | step_fst_pair : value v → value w → (step (config (pair v w) (s_fst k)) (config v k))
+  | step_snd_pair : value v → value w → (step (config (pair v w) (s_snd k)) (config w k))
 
-  | step_inl : (step (config (inl M) k) (config M (s_inl _ k)))
-  | step_inr : (step (config (inr M) k) (config M (s_inr _ k)))
+  | step_inl : (step (config (inl M) k) (config M (s_inl k)))
+  | step_inr : (step (config (inr M) k) (config M (s_inr k)))
 
-  | step_inl_comp : value v → (step (config v (s_inl _ k)) (config (inl v) k))
-  | step_inr_comp : value v → (step (config v (s_inr _ k)) (config (inr v) k))
+  | step_inl_comp : value v → (step (config v (s_inl k)) (config (inl v) k))
+  | step_inr_comp : value v → (step (config v (s_inr k)) (config (inr v) k))
 
-  | step_cse : (step (config (cse L (\x. M) (\y. N)) k) (config L (s_cse _ (\x. M) (\y. N) k)))
+  | step_cse : (step (config (cse L (\x. M) (\y. N)) k) (config L (s_cse (\x. M) (\y. N) k)))
 
-  | step_cse_inl : value v → (step (config (inl v) (s_cse _ (\x. (M x)) (\y. (N y)) k)) (config (M v) k))
-  | step_cse_inr : value v → (step (config (inr v) (s_cse _ (\x. (M x)) (\y. (N y)) k)) (config (N v) k))
+  | step_cse_inl : value v → (step (config (inl v) (s_cse (\x. (M x)) (\y. (N y)) k)) (config (M v) k))
+  | step_cse_inr : value v → (step (config (inr v) (s_cse (\x. (M x)) (\y. (N y)) k)) (config (N v) k))
   
   | step_let_cc : (step (config (letcc (\a. (M a))) k) (config (M k) k))
 
@@ -394,52 +391,52 @@ mlam C ⇒ case [ ⊢ C] of
 
   % Error
   % Leftover meta-variables in computation-level expression; provide a type annotation. for '_' in (s_abort _ k)
-  | [ ⊢ config (abort M) k] ⇒ Res_Step [ ⊢ (config M (s_abort _ k))] [ ⊢ step_abort]
+  | [ ⊢ config (abort M) k] ⇒ Res_Step [ ⊢ (config M (s_abort k))] [ ⊢ step_abort]
 
   | [ ⊢ config (lam (\x. M)) halt] ⇒ ?
 
   % Error
   % (s_app (lam (\x. M)) _ k) doesnt match C' in step_app
-  | [ ⊢ config (lam (\x. M)) (s_lam _ N k)] ⇒ Res_Step [ ⊢ (config N (s_app (lam (\x. M)) _ k))] [ ⊢ step_app]
+  | [ ⊢ config (lam (\x. M)) (s_lam N k)] ⇒ Res_Step [ ⊢ (config N (s_app (lam (\x. M)) k))] [ ⊢ step_app]
   
-  | [ ⊢ config (lam (\x. M)) (s_app (lam (\y. N)) _ k)] ⇒ ?
-  | [ ⊢ config (lam (\x. M)) (s_pair_l _ N k)] ⇒ ?
-  | [ ⊢ config (lam (\x. M)) (s_pair_r N _ k)] ⇒ ?
-  | [ ⊢ config (lam (\x. M)) (s_inl _ k)] ⇒ ?
-  | [ ⊢ config (lam (\x. M)) (s_inr _ k)] ⇒ ?
+  | [ ⊢ config (lam (\x. M)) (s_app (lam (\y. N)) k)] ⇒ ?
+  | [ ⊢ config (lam (\x. M)) (s_pair_l N k)] ⇒ ?
+  | [ ⊢ config (lam (\x. M)) (s_pair_r N k)] ⇒ ?
+  | [ ⊢ config (lam (\x. M)) (s_inl k)] ⇒ ?
+  | [ ⊢ config (lam (\x. M)) (s_inr k)] ⇒ ?
 
   | [ ⊢ config (app M N) k] ⇒ ?
 
   | [ ⊢ config (pair M N) k] ⇒ ?
   | [ ⊢ config (pair v w) halt] ⇒ ?
-  | [ ⊢ config (pair v w) (s_app (lam (\y. N)) _ k)] ⇒ ?
-  | [ ⊢ config (pair v w) (s_pair_l _ N k)] ⇒ ?
-  | [ ⊢ config (pair v w) (s_pair_r N _ k)] ⇒ ?
-  | [ ⊢ config (pair v w) (s_inl _ k)] ⇒ ?
-  | [ ⊢ config (pair v w) (s_inr _ k)] ⇒ ?
-  | [ ⊢ config (pair v w) (s_fst _ k)] ⇒ ?
-  | [ ⊢ config (pair v w) (s_snd _ k)] ⇒ ?
+  | [ ⊢ config (pair v w) (s_app (lam (\y. N)) k)] ⇒ ?
+  | [ ⊢ config (pair v w) (s_pair_l N k)] ⇒ ?
+  | [ ⊢ config (pair v w) (s_pair_r N k)] ⇒ ?
+  | [ ⊢ config (pair v w) (s_inl k)] ⇒ ?
+  | [ ⊢ config (pair v w) (s_inr k)] ⇒ ?
+  | [ ⊢ config (pair v w) (s_fst k)] ⇒ ?
+  | [ ⊢ config (pair v w) (s_snd k)] ⇒ ?
 
   | [ ⊢ config (fst M) k] ⇒ ?
   | [ ⊢ config (snd M) k] ⇒ ?
 
   | [ ⊢ config (inl M) k] ⇒ ?
   | [ ⊢ config (inl v) halt] ⇒ ?
-  | [ ⊢ config (inl v) (s_app (lam (\y. N)) _ k)] ⇒ ?
-  | [ ⊢ config (inl v) (s_pair_l _ N k)] ⇒ ?
-  | [ ⊢ config (inl v) (s_pair_r N _ k)] ⇒ ?
-  | [ ⊢ config (inl v) (s_inl _ k)] ⇒ ?
-  | [ ⊢ config (inl v) (s_inr _ k)] ⇒ ?
-  | [ ⊢ config (inl v) (s_cse _ (\x. M) (\y. N) k)] ⇒ ?
+  | [ ⊢ config (inl v) (s_app (lam (\y. N)) k)] ⇒ ?
+  | [ ⊢ config (inl v) (s_pair_l N k)] ⇒ ?
+  | [ ⊢ config (inl v) (s_pair_r N k)] ⇒ ?
+  | [ ⊢ config (inl v) (s_inl k)] ⇒ ?
+  | [ ⊢ config (inl v) (s_inr k)] ⇒ ?
+  | [ ⊢ config (inl v) (s_cse (\x. M) (\y. N) k)] ⇒ ?
 
   | [ ⊢ config (inr M) k] ⇒ ?
   | [ ⊢ config (inr v) halt] ⇒ ?
-  | [ ⊢ config (inr v) (s_app (lam (\y. N)) _ k)] ⇒ ?
-  | [ ⊢ config (inr v) (s_pair_l _ N k)] ⇒ ?
-  | [ ⊢ config (inr v) (s_pair_r N _ k)] ⇒ ?
-  | [ ⊢ config (inr v) (s_inl _ k)] ⇒ ?
-  | [ ⊢ config (inr v) (s_inr _ k)] ⇒ ?
-  | [ ⊢ config (inr v) (s_cse _ (\x. M) (\y. N) k)] ⇒ ?
+  | [ ⊢ config (inr v) (s_app (lam (\y. N)) k)] ⇒ ?
+  | [ ⊢ config (inr v) (s_pair_l N k)] ⇒ ?
+  | [ ⊢ config (inr v) (s_pair_r N k)] ⇒ ?
+  | [ ⊢ config (inr v) (s_inl k)] ⇒ ?
+  | [ ⊢ config (inr v) (s_inr k)] ⇒ ?
+  | [ ⊢ config (inr v) (s_cse (\x. M) (\y. N) k)] ⇒ ?
 
   | [ ⊢ config (cse L (\x. M) (\y. N)) k] ⇒ ?
 
