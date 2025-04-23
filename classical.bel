@@ -134,6 +134,7 @@ LF pt_true : tm → o → type =
   | PL: ({a : stack} pt_false a A → pt_true M A) → pt_true (letcc (\a. M)) A
 
 and pt_false: stack → o → type = 
+  | Ax : pt_false halt M
   | ⊥FI : pt_false k M → pt_false (s_abort _ k) ⊥
 
   | ⊃FI : pt_true N A → pt_false k B → pt_false (s_lam _ N k) (A ⊃ B)
@@ -272,8 +273,7 @@ fn p ⇒ fn s ⇒ case s of
 
 inductive Result : {M : [ ⊢ tm]}{k : [ ⊢ stack]} → ctype =
 | Res : {P : [ ⊢ o]} 
-      → [ ⊢ pt_true M P]
-      → [ ⊢ pt_false k P]
+      → [ ⊢ pt_conf (config M k) P]
       → Result [ ⊢ M] [ ⊢ k]
 ;
 
@@ -286,123 +286,122 @@ rec pres :  [ ⊢ pt_conf (config M k) P] → [ ⊢ step (config M k) (config M'
 fn p ⇒ fn s ⇒ case s of
   | [ ⊢ step_abort] ⇒	
     let [ ⊢ joined (⊥E D1) (D2)] = p in 
-      Res [ ⊢ _] [ ⊢ D1] [ ⊢ (⊥FI D2)]
+      Res [ ⊢ _] [ ⊢ joined D1 (⊥FI D2)]
       
   | [ ⊢ step_lam] ⇒	
     let [ ⊢ joined (⊃E D1 D2) (D3)] = p in 
-      Res [ ⊢ _] [ ⊢ D1] [ ⊢ (⊃FI D2 D3)]
+      Res [ ⊢ _] [ ⊢ joined D1 (⊃FI D2 D3)]
       
   | [ ⊢ step_app] ⇒	
     let [ ⊢ joined D1 (⊃FI D2 D3)] = p in 
-      Res [ ⊢ _] [ ⊢ D2] [ ⊢ (⊃FE D1 D3)]
+      Res [ ⊢ _] [ ⊢ joined D2 (⊃FE D1 D3)]
       
   | [ ⊢ step_app_lam V1] ⇒	
     let [ ⊢ joined D1 (⊃FE D2 D3)] = p in 
     let [ ⊢ D4] = (sub_lemma [ ⊢ ⊃E D2 D1] [ ⊢ sub_app_lam V1]) in
-      Res [ ⊢ _] [ ⊢ D4] [ ⊢ D3]
+      Res [ ⊢ _] [ ⊢ joined D4 D3]
       
   | [ ⊢ step_pair_l] ⇒	
     let [ ⊢ joined (∧I D1 D2) (D3)] = p in 
-      Res [ ⊢ _] [ ⊢ D1] [ ⊢ (∧FEl D2 D3)]
+      Res [ ⊢ _] [ ⊢ joined D1 (∧FEl D2 D3)]
       
   | [ ⊢ step_pair_r V1] ⇒	
     let [ ⊢ joined D1 (∧FEl D2 D3)] = p in 
-      Res [ ⊢ _] [ ⊢ D2] [ ⊢ (∧FEr D1 D3)]
+      Res [ ⊢ _] [ ⊢ joined D2 (∧FEr D1 D3)]
       
   | [ ⊢ step_pair_comp V1 V2] ⇒	
     let [ ⊢ joined D1 (∧FEr D2 D3)] = p in 
-      Res [ ⊢ _] [ ⊢ ∧I D2 D1] [ ⊢ D3]
+      Res [ ⊢ _] [ ⊢ joined (∧I D2 D1) D3]
       
   | [ ⊢ step_fst] ⇒	
     let [ ⊢ joined (∧El D1) (D2)] = p in 
-      Res [ ⊢ _] [ ⊢ D1] [ ⊢ (∧FIl D2)]
+      Res [ ⊢ _] [ ⊢ joined D1 (∧FIl D2)]
       
   | [ ⊢ step_snd] ⇒	
     let [ ⊢ joined (∧Er D1) (D2)] = p in 
-      Res [ ⊢ _] [ ⊢ D1] [ ⊢ (∧FIr D2)]
+      Res [ ⊢ _] [ ⊢ joined D1 (∧FIr D2)]
       
   | [ ⊢ step_fst_pair V1 V2] ⇒	
     let [ ⊢ joined (∧I D1 D2) (∧FIl D3)] = p in 
-      Res [ ⊢ _] [ ⊢ D1] [ ⊢ D3]
+      Res [ ⊢ _] [ ⊢ joined D1 D3]
       
   | [ ⊢ step_snd_pair V1 V2] ⇒	
     let [ ⊢ joined (∧I D1 D2) (∧FIr D3)] = p in 
-      Res [ ⊢ _] [ ⊢ D2] [ ⊢ D3]
+      Res [ ⊢ _] [ ⊢ joined D2 D3]
       
   | [ ⊢ step_inl] ⇒	
     let [ ⊢ joined (∨Il D1) (D2)] = p in 
-      Res [ ⊢ _] [ ⊢ D1] [ ⊢ (∨FEl D2)]
+      Res [ ⊢ _] [ ⊢ joined D1 (∨FEl D2)]
       
   | [ ⊢ step_inr] ⇒	
     let [ ⊢ joined (∨Ir D1) (D2)] = p in 
-      Res [ ⊢ _] [ ⊢ D1] [ ⊢ (∨FEr D2)]
+      Res [ ⊢ _] [ ⊢ joined D1 (∨FEr D2)]
       
   | [ ⊢ step_inl_comp V] ⇒	
     let [ ⊢ joined D1 (∨FEl D2)] = p in 
-      Res [ ⊢ _] [ ⊢ (∨Il D1)] [ ⊢ D2]
+      Res [ ⊢ _] [ ⊢ joined (∨Il D1) D2]
       
   | [ ⊢ step_inr_comp V] ⇒	
     let [ ⊢ joined D1 (∨FEr D2)] = p in 
-      Res [ ⊢ _] [ ⊢ (∨Ir D1)] [ ⊢ D2]
+      Res [ ⊢ _] [ ⊢ joined (∨Ir D1) D2]
       
   | [ ⊢ step_cse] ⇒	
     let [ ⊢ joined (∨E D1 (\x. \d. D2) (\y. \d. D3)) D4] = p in 
-      Res [ ⊢ _] [ ⊢ D1] [ ⊢ (∨FI (\x. \d. D2) (\y. \d. D3) D4)]
+      Res [ ⊢ _] [ ⊢ joined D1 (∨FI (\x. \d. D2) (\y. \d. D3) D4)]
       
   | [ ⊢ step_cse_inl V] ⇒	
     let [ ⊢ joined D1 (∨FI (\x. \d. D2) (\y. \d. D3) D4)] = p in 
     let [ ⊢ D5] = (sub_lemma [ ⊢ (∨E D1 (\x. \d. D2) (\y. \d. D3))] [ ⊢ sub_inl_cse]) in
-      Res [ ⊢ _] [ ⊢ D5] [ ⊢ D4]
+      Res [ ⊢ _] [ ⊢ joined D5 D4]
       
   | [ ⊢ step_cse_inr V] ⇒	
     let [ ⊢ joined D1 (∨FI (\x. \d. D2) (\y. \d. D3) D4)] = p in 
     let [ ⊢ D5] = (sub_lemma [ ⊢ (∨E D1 (\x. \d. D2) (\y. \d. D3))] [ ⊢ sub_inr_cse]) in
-      Res [ ⊢ _] [ ⊢ D5] [ ⊢ D4]
+      Res [ ⊢ _] [ ⊢ joined D5 D4]
       
   | [ ⊢ step_throw] ⇒
     let [ ⊢ joined (throw_app D1 D2) D3] = p in 
-      Res [ ⊢ _] [ ⊢ D2] [ ⊢ D1]
+      Res [ ⊢ _] [ ⊢ joined D2 D1]
       
   | [ ⊢ step_let_cc] ⇒
     let [ ⊢ joined (PL (\a. \d. D1)) D2] = p in 
-      Res [ ⊢ _] [ ⊢ D1[_,D2]] [ ⊢ D2]
+      Res [ ⊢ _] [ ⊢ joined D1[_,D2] D2]
 ;
 
 
-% Step or terminal
-LF step_or_terminate : type =
- | step_to : (step C C') -> step_or_terminate
- | terminate : (term C) -> step_or_terminate
+
+
+
+
+
+
+
+inductive Result_Prog : {C : [ ⊢ joint]} → ctype =
+| Res_Step : {C' : [ ⊢ joint]} 
+      → [ ⊢ step C C']
+      → Result_Prog [ ⊢ C]
+
+| Res_Term : [ ⊢ term C]
+      → Result_Prog [ ⊢ C]
 ;
 
-
-inductive Result_prog : ctype =
-| Res_step : {S : [ ⊢ step_or_terminate]} 
-      → {M : [ ⊢ tm]} 
-      → {k : [ ⊢ stack]} 
-      → {M' : [ ⊢ tm]} 
-      → {k' : [ ⊢ stack]} 
-      → [ ⊢ step (config M k) (config M' k')]
-      → Result_prog
-
-| Res_term : {S : [ ⊢ step_or_terminate]} 
-      → {M : [ ⊢ tm]} 
-      → {k : [ ⊢ stack]} 
-      → [ ⊢ term (config M k)]
-      → Result_prog 
-;
 
 % Progress 
-rec prog : [ ⊢ joint] → Result_prog = 
-/ total c (prog c)/
-fn c ⇒ case c of
-  | [ ⊢ config taut halt] ⇒ Res_term [ ⊢ _] [ ⊢ taut] [ ⊢ halt] [ ⊢ term_taut]
+rec prog : {C : [ ⊢ joint]} Result_Prog [ ⊢ C] = 
+mlam C ⇒ case [ ⊢ C] of
 
-  | [ ⊢ config (abort M) k] ⇒ Res_step [ ⊢ _] [ ⊢ taut] [ ⊢ halt] [ ⊢ term_taut]
+  | [ ⊢ config taut halt] ⇒ Res_Term [ ⊢ term_taut]
+
+  % Error
+  % Leftover meta-variables in computation-level expression; provide a type annotation. for '_' in (s_abort _ k)
+  | [ ⊢ config (abort M) k] ⇒ Res_Step [ ⊢ (config M (s_abort _ k))] [ ⊢ step_abort]
 
   | [ ⊢ config (lam (\x. M)) halt] ⇒ ?
-  | [ ⊢ config (lam (\x. M)) halt] ⇒ ?
-  | [ ⊢ config (lam (\x. M)) (s_lam _ N k)] ⇒ ?
+
+  % Error
+  % (s_app (lam (\x. M)) _ k) doesnt match C' in step_app
+  | [ ⊢ config (lam (\x. M)) (s_lam _ N k)] ⇒ Res_Step [ ⊢ (config N (s_app (lam (\x. M)) _ k))] [ ⊢ step_app]
+  
   | [ ⊢ config (lam (\x. M)) (s_app (lam (\y. N)) _ k)] ⇒ ?
   | [ ⊢ config (lam (\x. M)) (s_pair_l _ N k)] ⇒ ?
   | [ ⊢ config (lam (\x. M)) (s_pair_r N _ k)] ⇒ ?
