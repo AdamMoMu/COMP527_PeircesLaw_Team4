@@ -95,8 +95,7 @@ and stack : type =
 
   | s_abort : stack → stack
 
-  | halt : stack % no need for k since its end of program
-
+  | halt : stack
 
 ;
 
@@ -129,6 +128,7 @@ LF pt_true : tm → o → type =
   | throw_app : pt_false k A → pt_true M A → pt_true (throw k M) ⊥
 
   | PL: ({a : stack} pt_false a A → pt_true M A) → pt_true (letcc (\a. M)) A
+
 
 and pt_false: stack → o → type = 
   | Ax : pt_false halt M
@@ -196,9 +196,9 @@ LF step : joint → joint → type =
 
   | step_lam : (step (config (app M N) k) (config M (s_lam N k)))
 
-  | step_app : (step (config (lam (\x. M')) (s_lam N k)) (config N (s_app (lam (\x. M')) k)))
+  | step_app : value (lam (\x. M)) → (step (config (lam (\x. M')) (s_lam N k)) (config N (s_app (lam (\x. M')) k)))
 
-  | step_app_lam : value v → (step (config v (s_app (lam (\x. (M' x))) k)) (config (M' v) k))
+  | step_app_lam : value (lam (\x. M)) → value v → (step (config v (s_app (lam (\x. (M' x))) k)) (config (M' v) k))
 
   | step_pair_l : (step (config (pair M N) k) (config M (s_pair_l N k)))
 
@@ -245,7 +245,7 @@ LF tm_sub: tm → tm → type =
 rec sub_lemma : [ ⊢ pt_true M P] → [ ⊢ tm_sub M M'] → [ ⊢ pt_true M' P] = 
 / total s (sub_lemma M P M' p s)/
 fn p ⇒ fn s ⇒ case s of
-  | [ ⊢ sub_app_lam V] ⇒	
+  | [ ⊢ sub_app_lam V1] ⇒	
     let [ ⊢ ⊃E (⊃I (\v. \u. D1)) D2] = p in
       [ ⊢ D1[_,D2]]
 
@@ -289,13 +289,13 @@ fn p ⇒ fn s ⇒ case s of
     let [ ⊢ joined (⊃E D1 D2) (D3)] = p in 
       Res [ ⊢ _] [ ⊢ joined D1 (⊃FI D2 D3)]
       
-  | [ ⊢ step_app] ⇒	
+  | [ ⊢ step_app V1] ⇒	
     let [ ⊢ joined D1 (⊃FI D2 D3)] = p in 
       Res [ ⊢ _] [ ⊢ joined D2 (⊃FE D1 D3)]
       
-  | [ ⊢ step_app_lam V1] ⇒	
+  | [ ⊢ step_app_lam V1 V2] ⇒	
     let [ ⊢ joined D1 (⊃FE D2 D3)] = p in 
-    let [ ⊢ D4] = (sub_lemma [ ⊢ ⊃E D2 D1] [ ⊢ sub_app_lam V1]) in
+    let [ ⊢ D4] = (sub_lemma [ ⊢ ⊃E D2 D1] [ ⊢ sub_app_lam V2]) in
       Res [ ⊢ _] [ ⊢ joined D4 D3]
       
   | [ ⊢ step_pair_l] ⇒	
@@ -373,31 +373,55 @@ fn p ⇒ fn s ⇒ case s of
 
 
 
-inductive Result_Prog : {C : [ ⊢ joint]} → ctype =
-| Res_Step : {C' : [ ⊢ joint]} 
+inductive Result_Prog : ctype =
+| Res_Step : {C : [ ⊢ joint]} 
+      → {C' : [ ⊢ joint]} 
       → [ ⊢ step C C']
-      → Result_Prog [ ⊢ C]
+      → Result_Prog 
 
-| Res_Term : [ ⊢ term C]
-      → Result_Prog [ ⊢ C]
+| Res_Term : {C : [ ⊢ joint]} 
+      → [ ⊢ term C]
+      → Result_Prog 
 ;
 
 
 % Progress 
-rec prog : {C : [ ⊢ joint]} Result_Prog [ ⊢ C] = 
-mlam C ⇒ case [ ⊢ C] of
+rec prog : [ ⊢ joint] → Result_Prog = 
+fn c ⇒ case c of
 
-  | [ ⊢ config taut halt] ⇒ Res_Term [ ⊢ term_taut]
+  | [ ⊢ config taut halt] ⇒ Res_Term [ ⊢ config taut halt] [ ⊢ term_taut]
+
+  | [ ⊢ config (abort M) k] ⇒ Res_Step [ ⊢ config (abort M) k] [ ⊢ (config M (s_abort k))] [ ⊢ step_abort]
+
+
+  %396 |  | [ ⊢ config (lam (\x. M)) halt] ⇒ Res_Term [ ⊢ config (lam (\x. M)) halt] [ ⊢ term_lam]                                                           ^^^^^^^^  
+  % Error: Ill-typed expression.
+  %        Expected type:
+  %          term (config (lam (\x. M)) halt)
+  %        Actual type:
+  %          term (config (lam (\x. ?M_7334[^0][])) halt)
+  
+  | [ ⊢ config (lam (\x. M)) halt] ⇒ Res_Term [ ⊢ config (lam (\x. M)) halt] [ ⊢ term_lam]
 
   % Error
-  % Leftover meta-variables in computation-level expression; provide a type annotation. for '_' in (s_abort _ k)
-  | [ ⊢ config (abort M) k] ⇒ Res_Step [ ⊢ (config M (s_abort k))] [ ⊢ step_abort]
-
-  | [ ⊢ config (lam (\x. M)) halt] ⇒ ?
-
-  % Error
-  % (s_app (lam (\x. M)) _ k) doesnt match C' in step_app
-  | [ ⊢ config (lam (\x. M)) (s_lam N k)] ⇒ Res_Step [ ⊢ (config N (s_app (lam (\x. M)) k))] [ ⊢ step_app]
+  % 402 |  | [ ⊢ config (lam (\x. M)) (s_lam N k)] ⇒ Res_Step [ ⊢ config (lam (\x. M)) (s_lam N k)] [ ⊢ (config N (s_app (lam (\x. M)) k))] [ ⊢ (step_app value_lam)]
+  %                                                                                                                                             ^^^^^^^^^^^^^^^^^^^^  
+  % Error: Ill-typed expression.
+  %        Expected type:
+  %          step
+  %            (config (lam (\x. M)) (s_lam N k))
+  %            (config N (s_app (lam (\x. M)) k))
+  %        Actual type:
+  %          step
+  %            (config (lam (\x. ?M'_7338[^0][]))
+  %            (s_lam ?N_7339[^0][] ?k_7340[^0][]))
+  %            (config ?N_7339[^0][]
+  %            (s_app (lam (\x. ?M'_7338[^0][])) ?k_7340[^0][]))
+  
+  | [ ⊢ config (lam (\x. M)) (s_lam N k)] ⇒ ?
+  % Res_Step [ ⊢ config (lam (\x. M)) (s_lam N k)] 
+            %  [ ⊢ (config N (s_app (lam (\x. M)) k))] 
+            %  [ ⊢ (step_app value_lam)]
   
   | [ ⊢ config (lam (\x. M)) (s_app (lam (\y. N)) k)] ⇒ ?
   | [ ⊢ config (lam (\x. M)) (s_pair_l N k)] ⇒ ?
