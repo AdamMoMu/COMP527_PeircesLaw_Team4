@@ -146,10 +146,10 @@ and pt_false: stack → o → type =
   | ∨FEl : pt_false k (A ∨ B) → pt_false (s_inl k) A
   | ∨FEr : pt_false k (A ∨ B) → pt_false (s_inr k) B
 
-  | ∨FI  :({x : tm} pt_true x A → pt_true M C)
-        → ({y : tm} pt_true y B → pt_true N C)   
+  | ∨FI  :({x : tm} pt_true x A → pt_true (M x) C)
+        → ({y : tm} pt_true y B → pt_true (N y) C)   
         → pt_false k C
-        → pt_false (s_cse (\x. M) (\y. N) k) (A ∨ B)
+        → pt_false (s_cse (\x. M x) (\y. N y) k) (A ∨ B)
 ;
 
 
@@ -171,7 +171,7 @@ LF pt_conf : joint → o → type =
 % Values 
 LF value : tm → type =
   | value_taut : value taut
-  | value_lam : value (lam (\x. M))
+  | value_lam : value (lam (\x. M x))
   | value_pair : value M → value N → value (pair M N)
   | value_inl : value M → value (inl M)
   | value_inr : value M → value (inr M)
@@ -181,7 +181,7 @@ LF value : tm → type =
 % Terminal
 LF terminal : joint → type =
   | term_taut : terminal (config taut halt)
-  | term_lam : terminal (config (lam (\x. M)) halt)
+  | term_lam : terminal (config (lam (\x. M x)) halt)
   | term_pair : value M → value N → terminal (config (pair M N) halt)
   | term_inl : value M → terminal (config (inl M) halt)
   | term_inr : value M → terminal (config (inr M) halt)
@@ -196,9 +196,9 @@ LF step : joint → joint → type =
 
   | step_lam : (step (config (app M N) k) (config M (s_lam N k)))
 
-  | step_app : value (lam (\x. M)) → (step (config (lam (\x. M')) (s_lam N k)) (config N (s_app (lam (\x. M')) k)))
+  | step_app : value (lam (\x. M x)) → (step (config (lam (\x. M' x)) (s_lam N k)) (config N (s_app (lam (\x. M' x)) k)))
 
-  | step_app_lam : value (lam (\x. M)) → value v → (step (config v (s_app (lam (\x. (M' x))) k)) (config (M' v) k))
+  | step_app_lam : value (lam (\x. M x)) → value v → (step (config v (s_app (lam (\x. (M' x))) k)) (config (M' v) k))
 
   | step_pair_l : (step (config (pair M N) k) (config M (s_pair_l N k)))
 
@@ -218,7 +218,7 @@ LF step : joint → joint → type =
   | step_inl_comp : value v → (step (config v (s_inl k)) (config (inl v) k))
   | step_inr_comp : value v → (step (config v (s_inr k)) (config (inr v) k))
 
-  | step_cse : (step (config (cse L (\x. M) (\y. N)) k) (config L (s_cse (\x. M) (\y. N) k)))
+  | step_cse : (step (config (cse L (\x. M x) (\y. N y)) k) (config L (s_cse (\x. M x) (\y. N y) k)))
 
   | step_cse_inl : value v → (step (config (inl v) (s_cse (\x. (M x)) (\y. (N y)) k)) (config (M v) k))
   | step_cse_inr : value v → (step (config (inr v) (s_cse (\x. (M x)) (\y. (N y)) k)) (config (N v) k))
@@ -367,109 +367,250 @@ fn p ⇒ fn s ⇒ case s of
 
 
 
+LF step_true : tm → tm → type = 
+  | st_app_l : (step_true A1 A2) → (step_true (app A1 B) (app A2 B))
+  | st_app_r : (value A) → (step_true B1 B2) → (step_true (app A B1) (app A B2))
 
-
-
-
-
-
-inductive Result_Prog : ctype =
-| Res_Step : {C : [ ⊢ joint]} 
-      → {C' : [ ⊢ joint]} 
-      → [ ⊢ step C C']
-      → Result_Prog 
-
-| Res_Term : {C : [ ⊢ joint]} 
-      → [ ⊢ terminal C]
-      → Result_Prog 
+  | st_pair_l : (step_true A1 A2) → (step_true (pair A1 B) (pair A2 B))
+  | st_pair_r : (value A) → (step_true B1 B2) → (step_true (pair A B1) (pair A B2))
+  
+  | st_inl : (step_true A1 A2) → (step_true (inl A1) (inl A2))
+  | st_inr : (step_true A1 A2) → (step_true (inr A1) (inr A2))
 ;
+
+
+% Step or value
+LF step_or_val : tm -> type =
+  | st_to : (step_true E E') -> step_or_val E
+  | vals : (value E) -> step_or_val E
+;
+
+
+
+% Progress (if we have proof then the proof term is a step or a value)
+rec prog_tm : [ ⊢ pt_true E P] → [ ⊢ step_or_val E] = 
+fn p ⇒ case p of
+  | [ ⊢ ⊤I] ⇒ [ ⊢ vals value_taut]
+
+  | [ ⊢ ⊃I (\x. \d. D)] ⇒  [ ⊢ vals value_lam]
+
+  | [ ⊢ ∧I D1 D2] ⇒	
+    (case prog_tm [ ⊢ D1]  of
+      | [ ⊢ st_to EV] ⇒ [ ⊢ st_to (st_pair_l EV)]
+      | [ ⊢ vals VL1] ⇒ 
+        (case  prog_tm [ |- D2]   of
+          | [ |- st_to EV] => [ |- st_to (st_pair_r VL1 EV)]
+          | [ |- vals VL2] => [ |- vals (value_pair VL1 VL2)]
+       )
+    )
+
+  | [ ⊢ ∨Il D] ⇒		
+    (case prog_tm [ ⊢ D]  of
+      | [ ⊢ st_to EV] ⇒ [ ⊢ st_to (st_inl EV)]
+      | [ ⊢ vals V] ⇒ [ ⊢ vals (value_inl V)] 
+    )
+  
+  | [ ⊢ ∨Ir D] ⇒		
+    (case prog_tm [ ⊢ D]  of
+      | [ ⊢ st_to EV] ⇒ [ ⊢ st_to (st_inr EV)]
+      | [ ⊢ vals V] ⇒ [ ⊢ vals (value_inr V)] 
+    )
+;
+
+
+
+LF step_or_terminate: joint → type =
+ | step_to: (step C C') → step_or_terminate C
+ | terminate: terminal C → step_or_terminate C
+;
+
+
+
+
 
 
 % Progress 
-rec prog : [ ⊢ joint] → Result_Prog = 
-fn c ⇒ case c of
+rec prog : [ ⊢ pt_conf C P] → [ ⊢ step_or_terminate C] = 
+fn p ⇒ case p of
+    | [ ⊢ joined T1 F1] ⇒ 
+      (case [ ⊢ T1]  of
+        | [ ⊢ ⊤I] ⇒ 
+          (case [ ⊢ F1]  of
+              | [ ⊢ Ax] ⇒ [ ⊢ terminate term_taut]
+          )
+        | [ ⊢ ⊥E D1] ⇒ 
+          (case [ ⊢ F1]  of
+              | [ ⊢ ⊥FI E1] ⇒ 
+                (case prog [ ⊢ joined D1 F1] of
+                  | [ |- step_to EV] => [ |- step_to (step_abort)]
+                )
+          )
+          
+        | [ ⊢ ⊃I (\x. \d. D1)] ⇒ 
+          (case [ ⊢ F1]  of
+              | [ ⊢ Ax] ⇒ [ ⊢ terminate term_lam]
+              | [ ⊢ ⊃FI D2 E1] ⇒ 
+                (case prog_tm [ ⊢ T1] of
+                    | [ |- vals V] =>  [ |- step_to (step_app V)]
+                )
+                
+              | [ ⊢ ⊃FE D2 E1] ⇒ 
+                (case prog_tm [ ⊢ T1] of
+                  | [ ⊢ vals V1] => 
+                    (case [ ⊢ D2] of
+                      | [ ⊢ ⊃I (\x. \d. D3)] =>
+                        (case prog_tm [ ⊢ D2] of
+                          | [ ⊢ vals V2] => [ |- step_to (step_app_lam V2 V1)]
+                        )
+                    )
+                )
 
-  | [ ⊢ config taut halt] ⇒ Res_Term [ ⊢ config taut halt] [ ⊢ term_taut]
+              | [ ⊢ ∧FEl D2 E1] ⇒  
+                (case prog_tm [ ⊢ T1] of
+                    | [ |- vals V] =>  [ |- step_to (step_pair_r V)]
+                )
 
-  | [ ⊢ config (abort M) k] ⇒ Res_Step [ ⊢ config (abort M) k] [ ⊢ (config M (s_abort k))] [ ⊢ step_abort]
+              | [ ⊢ ∧FEr D2 E1] ⇒  
+                (case prog_tm [ ⊢ T1] of
+                  | [ ⊢ vals V1] => 
+                    (case [ ⊢ D2] of
+                      | [ ⊢ ∧I D3 D4] =>
+                        (case prog_tm [ ⊢ D2] of
+                          | [ ⊢ vals V2] => [ |- step_to (step_pair_comp V2 V1)]
+                        )
+                    )
+                )
+
+              | [ ⊢ ∨FEl E1] ⇒  
+                (case prog_tm [ ⊢ T1] of
+                    | [ |- vals V] =>  [ |- step_to (step_inl_comp V)]
+                )
+
+              | [ ⊢ ∨FEr E1] ⇒  
+                (case prog_tm [ ⊢ T1] of
+                    | [ |- vals V] =>  [ |- step_to (step_inr_comp V)]
+                )
+          )
+        | [ ⊢ ⊃E D1 D2] => [ |- step_to (step_lam)]
+
+        | [ ⊢ ∧I D1 D2] ⇒ 
+          (case prog_tm [ ⊢ D1] of
+            | [ |- st_to S1] ⇒ [ |- step_to (step_pair_l)]
+            | [ |- vals V1] ⇒
+              (case prog_tm [ ⊢ D2] of
+                | [ |- vals V2] ⇒
+                  (case [ ⊢ F1]  of
+                    | [ ⊢ Ax] ⇒ [ |- terminate (term_pair V1 V2)]
+                    | [ ⊢ ⊃FE D3 E1] ⇒  
+                      (case [ ⊢ D3] of
+                        | [ ⊢ ⊃I (\x. \d. D4)] =>
+                          (case prog_tm [ ⊢ D3] of
+                            | [ ⊢ vals V4] => [ |- step_to (step_app_lam V4 (value_pair V1 V2))]
+                          )
+                      )
+                    
+                    | [ ⊢ ∧FEl D3 E1] ⇒  [ |- step_to (step_pair_r (value_pair V1 V2))]
+
+                    | [ ⊢ ∧FEr D3 E1] ⇒  
+                      (case [ ⊢ D3] of
+                        | [ ⊢ ∧I D4 D5] =>
+                          (case prog_tm [ ⊢ D3] of
+                            | [ ⊢ vals V3] => [ |- step_to (step_pair_comp V3 (value_pair V1 V2))]
+                          )
+                      ) 
+
+                    | [ ⊢ ∨FEl E1] ⇒ [ |- step_to (step_inl_comp (value_pair V1 V2))]
+                      
+
+                    | [ ⊢ ∨FEr E1] ⇒ [ |- step_to (step_inr_comp (value_pair V1 V2))]
+                      
+                    | [ ⊢ ∧FIl E1] ⇒ [ |- step_to (step_fst_pair V1 V2)]
+
+                    | [ ⊢ ∧FIr E1] ⇒ [ |- step_to (step_snd_pair V1 V2)]
+                  )
+              )
+          )
+
+        
+
+        | [ ⊢ ∧El D1] ⇒ [ |- step_to (step_fst)]
+        | [ ⊢ ∧Er D1] ⇒ [ |- step_to (step_snd)]
+
+        | [ ⊢ ∨Il D1] ⇒ 
+          (case prog_tm [ ⊢ D1] of
+            | [ |- st_to S1] ⇒ [ |- step_to (step_inl)]
+            | [ |- vals V1] ⇒
+              (case [ ⊢ F1]  of
+                | [ ⊢ Ax] ⇒ [ |- terminate (term_inl V1)]
+                | [ ⊢ ⊃FE D2 E1] ⇒  
+                  (case [ ⊢ D2] of
+                    | [ ⊢ ⊃I (\x. \d. D3)] =>
+                      (case prog_tm [ ⊢ D2] of
+                        | [ ⊢ vals V2] => [ |- step_to (step_app_lam V2 (value_inl V1))]
+                      )
+                  )
+                
+                | [ ⊢ ∧FEl D2 E1] ⇒  [ |- step_to (step_pair_r (value_inl V1))]
+
+                | [ ⊢ ∧FEr D2 E1] ⇒  
+                  (case [ ⊢ D2] of
+                    | [ ⊢ ∧I D3 D4] =>
+                      (case prog_tm [ ⊢ D2] of
+                        | [ ⊢ vals V2] => [ |- step_to (step_pair_comp V2 (value_inl V1))]
+                      )
+                  ) 
+
+                | [ ⊢ ∨FEl E1] ⇒ [ |- step_to (step_inl_comp (value_inl V1))]
+                  
+
+                | [ ⊢ ∨FEr E1] ⇒ [ |- step_to (step_inr_comp (value_inl V1))]
+
+                | [ ⊢ ∨FI (\x. \d. D3) (\x. \d. D4) E1] ⇒ [ |- step_to (step_cse_inl V1)]
+              )
+          )
 
 
-  %396 |  | [ ⊢ config (lam (\x. M)) halt] ⇒ Res_Term [ ⊢ config (lam (\x. M)) halt] [ ⊢ term_lam]                                                           ^^^^^^^^  
-  % Error: Ill-typed expression.
-  %        Expected type:
-  %          term (config (lam (\x. M)) halt)
-  %        Actual type:
-  %          term (config (lam (\x. ?M_7334[^0][])) halt)
 
-  | [ ⊢ config (lam (\x. M)) halt] ⇒ Res_Term [ ⊢ config (lam (\x. M)) halt] [ ⊢ term_lam]
 
-  % Error
-  % 402 |  | [ ⊢ config (lam (\x. M)) (s_lam N k)] ⇒ Res_Step [ ⊢ config (lam (\x. M)) (s_lam N k)] [ ⊢ (config N (s_app (lam (\x. M)) k))] [ ⊢ (step_app value_lam)]
-  %                                                                                                                                             ^^^^^^^^^^^^^^^^^^^^  
-  % Error: Ill-typed expression.
-  %        Expected type:
-  %          step
-  %            (config (lam (\x. M)) (s_lam N k))
-  %            (config N (s_app (lam (\x. M)) k))
-  %        Actual type:
-  %          step
-  %            (config (lam (\x. ?M'_7338[^0][]))
-  %            (s_lam ?N_7339[^0][] ?k_7340[^0][]))
-  %            (config ?N_7339[^0][]
-  %            (s_app (lam (\x. ?M'_7338[^0][])) ?k_7340[^0][]))
-  
-  | [ ⊢ config (lam (\x. M)) (s_lam N k)] ⇒ Res_Step [ ⊢ config (lam (\x. M)) (s_lam N k)] 
-                                                      [ ⊢ (config N (s_app (lam (\x. M)) k))] 
-                                                      [ ⊢ (step_app value_lam)]
-  
-  
-  | [ ⊢ config (lam (\x. M)) (s_app (lam (\y. N)) k)] ⇒ ?
-  | [ ⊢ config (lam (\x. M)) (s_pair_l N k)] ⇒ ?
-  | [ ⊢ config (lam (\x. M)) (s_pair_r N k)] ⇒ ?
-  | [ ⊢ config (lam (\x. M)) (s_inl k)] ⇒ ?
-  | [ ⊢ config (lam (\x. M)) (s_inr k)] ⇒ ?
+        | [ ⊢ ∨Ir D1] ⇒ 
+          (case prog_tm [ ⊢ D1] of
+            | [ |- st_to S1] ⇒ [ |- step_to (step_inr)]
+            | [ |- vals V1] ⇒
+              (case [ ⊢ F1]  of
+                | [ ⊢ Ax] ⇒ [ |- terminate (term_inr V1)]
+                | [ ⊢ ⊃FE D2 E1] ⇒  
+                  (case [ ⊢ D2] of
+                    | [ ⊢ ⊃I (\x. \d. D3)] =>
+                      (case prog_tm [ ⊢ D2] of
+                        | [ ⊢ vals V2] => [ |- step_to (step_app_lam V2 (value_inr V1))]
+                      )
+                  )
+                
+                | [ ⊢ ∧FEl D2 E1] ⇒  [ |- step_to (step_pair_r (value_inr V1))]
 
-  | [ ⊢ config (app M N) k] ⇒ ?
+                | [ ⊢ ∧FEr D2 E1] ⇒  
+                  (case [ ⊢ D2] of
+                    | [ ⊢ ∧I D3 D4] =>
+                      (case prog_tm [ ⊢ D2] of
+                        | [ ⊢ vals V2] => [ |- step_to (step_pair_comp V2 (value_inr V1))]
+                      )
+                  ) 
 
-  | [ ⊢ config (pair M N) k] ⇒ ?
-  | [ ⊢ config (pair v w) halt] ⇒ ?
-  | [ ⊢ config (pair v w) (s_app (lam (\y. N)) k)] ⇒ ?
-  | [ ⊢ config (pair v w) (s_pair_l N k)] ⇒ ?
-  | [ ⊢ config (pair v w) (s_pair_r N k)] ⇒ ?
-  | [ ⊢ config (pair v w) (s_inl k)] ⇒ ?
-  | [ ⊢ config (pair v w) (s_inr k)] ⇒ ?
-  | [ ⊢ config (pair v w) (s_fst k)] ⇒ ?
-  | [ ⊢ config (pair v w) (s_snd k)] ⇒ ?
+                | [ ⊢ ∨FEl E1] ⇒ [ |- step_to (step_inl_comp (value_inr V1))]
+                  
 
-  | [ ⊢ config (fst M) k] ⇒ ?
-  | [ ⊢ config (snd M) k] ⇒ ?
+                | [ ⊢ ∨FEr E1] ⇒ [ |- step_to (step_inr_comp (value_inr V1))]
 
-  | [ ⊢ config (inl M) k] ⇒ ?
-  | [ ⊢ config (inl v) halt] ⇒ ?
-  | [ ⊢ config (inl v) (s_app (lam (\y. N)) k)] ⇒ ?
-  | [ ⊢ config (inl v) (s_pair_l N k)] ⇒ ?
-  | [ ⊢ config (inl v) (s_pair_r N k)] ⇒ ?
-  | [ ⊢ config (inl v) (s_inl k)] ⇒ ?
-  | [ ⊢ config (inl v) (s_inr k)] ⇒ ?
-  | [ ⊢ config (inl v) (s_cse (\x. M) (\y. N) k)] ⇒ ?
+                | [ ⊢ ∨FI (\x. \d. D3) (\x. \d. D4) E1] ⇒ [ |- step_to (step_cse_inr V1)]
+              )
+          )
+        
+        | [ ⊢ ∨E D1 (\x. \d. D2) (\y. \e. D3)] ⇒ [ |- step_to (step_cse)]
 
-  | [ ⊢ config (inr M) k] ⇒ ?
-  | [ ⊢ config (inr v) halt] ⇒ ?
-  | [ ⊢ config (inr v) (s_app (lam (\y. N)) k)] ⇒ ?
-  | [ ⊢ config (inr v) (s_pair_l N k)] ⇒ ?
-  | [ ⊢ config (inr v) (s_pair_r N k)] ⇒ ?
-  | [ ⊢ config (inr v) (s_inl k)] ⇒ ?
-  | [ ⊢ config (inr v) (s_inr k)] ⇒ ?
-  | [ ⊢ config (inr v) (s_cse (\x. M) (\y. N) k)] ⇒ ?
 
-  | [ ⊢ config (cse L (\x. M) (\y. N)) k] ⇒ ?
-
-  | [ ⊢ config (throw k M) k'] ⇒ ?
-
-  | [ ⊢ config (letcc (\a. M)) k] ⇒ ?
-
+        | [ ⊢ throw_app D1 D2] ⇒ [ |- step_to (step_throw)]
+        | [ ⊢ PL (\a. \d. D1)] ⇒ [ |- step_to (step_let_cc)]
+      )
 ;
-
-
 
 
